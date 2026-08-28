@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+:root {
+  --ms-app-bg: #0f0f0f;
+  --ms-panel-bg: #1c1c1e;
+  --ms-card-bg: #2c2c2e;
+  --ms-elevated-bg: #3a3a3c;
+  --ms-input-bg: #111112;
+  --ms-chart-bg: #0c0c0c;
+  --ms-plot-bg: #0a0a0c;
+  --ms-text-primary: #f2f2f2;
+  --ms-text-secondary: #9a9a9e;
+  --ms-text-tertiary: #6e6e73;
+  --ms-brand: #ffd21e;
+  --ms-brand-dim: rgb(72 61 0 / 42%);
+  --ms-separator: #36363a;
+  --ms-grid: #303034;
+  --ms-axis: #b4b4b8;
+  --ms-buy: #18d5b5;
+  --ms-buy-bright: #55e9cc;
+  --ms-chart-buy: #049981;
+  --ms-sell: #ff5a70;
+  --ms-sell-bright: #ff8795;
+  --ms-chart-sell: #f2395a;
+  --ms-success: #2bd576;
+  --ms-danger: #ff4d5e;
+  --ms-key-gamma: #32aaff;
+  color: var(--ms-text-primary);
+  background: var(--ms-app-bg);
+  font-family: "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+html,
+body {
+  min-width: 320px;
+  min-height: 100%;
+  background: var(--ms-app-bg);
+}
+
+body {
+  margin: 0;
+}
+
+button,
+select {
+  border-radius: 0;
+}
+
+button:not(:disabled),
+select:not(:disabled) {
+  cursor: pointer;
+}
+
+::selection {
+  color: var(--ms-panel-bg);
+  background: var(--ms-brand);
+}
+
+.dashboard-grid {
+  background-image:
+    linear-gradient(rgb(48 48 52 / 34%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(48 48 52 / 34%) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+* {
+  scrollbar-color: var(--ms-separator) var(--ms-panel-bg);
+  scrollbar-width: thin;
+}
+
+.ms-panel {
+  overflow: hidden;
+  border: 1px solid var(--ms-separator);
+  border-radius: 10px;
+  background: var(--ms-panel-bg);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 24%);
+}
+
+.ms-control {
+  border: 1px solid var(--ms-separator);
+  border-radius: 8px;
+  background: var(--ms-input-bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
