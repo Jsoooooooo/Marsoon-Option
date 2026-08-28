@@ -323,6 +323,34 @@ pnpm build
 - 没有把 Demo 数据描述为生产数据。
 - README 与实现保持一致。
 
+## GitHub 协作规则
+
+仓库已经提供：
+
+- `.github/workflows/ci.yml`：Pull Request 和 `main` Push 自动执行安装、类型检查与生产构建。
+- `.github/PULL_REQUEST_TEMPLATE.md`：统一 PR 范围、数据口径、截图和验收说明。
+- `.github/CODEOWNERS`：共享文件默认请求 `@Jsoooooooo` 审核。
+
+每位组员应从最新 `main` 创建功能分支：
+
+```bash
+git checkout main
+git pull origin main
+git checkout -b feature/<module-name>
+```
+
+其他 PR 合并后，在自己的功能分支同步：
+
+```bash
+git fetch origin
+git merge origin/main
+pnpm install
+pnpm lint
+pnpm build
+```
+
+推荐在 GitHub Rulesets 中保护 `main`，要求 Pull Request、至少一次审核，并将 CI 的 `quality` Job 设置为 Required Status Check。
+
 ## 当前边界
 
 - 当前 Route Handler 返回本地演示数据。

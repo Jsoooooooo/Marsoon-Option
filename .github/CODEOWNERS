@@ -1,0 +1,22 @@
+# 默认由仓库维护者审核所有改动。
+* @Jsoooooooo
+
+# 共享契约、主题、导航、依赖和 CI 必须由维护者审核。
+/src/api/ @Jsoooooooo
+/src/app/globals.css @Jsoooooooo
+/src/components/Sidebar.tsx @Jsoooooooo
+/src/features/options/dashboard-view-model.ts @Jsoooooooo
+/src/features/options/levels-view-model.ts @Jsoooooooo
+/package.json @Jsoooooooo
+/pnpm-lock.yaml @Jsoooooooo
+/.github/ @Jsoooooooo
+
+# 获得组员 GitHub 用户名后，可以取消注释并替换：
+# /src/app/gamma/ @gamma-member
+# /src/features/options/gamma/ @gamma-member
+# /src/app/zero-dte/ @zero-dte-member
+# /src/features/options/zero-dte/ @zero-dte-member
+# /src/app/flow/ @flow-member
+# /src/features/options/flow/ @flow-member
+# /src/app/volatility/ @volatility-member
+# /src/features/options/volatility/ @volatility-member
