@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>普通写法 vs React · 对照幕布教学</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: #141416; color: #EDEDED; overflow: hidden; }
+  .deck { position: fixed; inset: 0; }
+  .scene { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 6vh 7vw; text-align: center; opacity: 0; visibility: hidden; pointer-events: none;
+    transform: translateY(40px) scale(.98); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1), visibility .7s; }
+  .scene.active { opacity: 1; visibility: visible; pointer-events: auto; transform: none; z-index: 2; }
+  .scene.prev { transform: translateY(-40px) scale(.98); }
+  /* 四级字号阶梯 + 8px 间距节奏 */
+  .kicker { font-size: 12px; letter-spacing: 3px; color: #C0DD97; text-transform: uppercase; margin-bottom: 16px; opacity: 0; transform: translateY(14px); transition: .6s .15s; }
+  .scene.active .kicker { opacity: 1; transform: none; }
+  h1.title { font-size: clamp(28px, 3.6vw, 40px); font-weight: 800; line-height: 1.2; margin-bottom: 16px;
+    opacity: 0; transform: translateY(18px); transition: .6s .25s; }
+  .scene.active h1.title { opacity: 1; transform: none; }
+  .subtitle { font-size: clamp(15px, 1.7vw, 17px); color: #AFAFAF; line-height: 1.75; max-width: 820px; margin-bottom: 32px;
+    opacity: 0; transform: translateY(18px); transition: .6s .4s; }
+  .scene.active .subtitle { opacity: 1; transform: none; }
+  .stage { width: min(1000px, 92vw); opacity: 0; transform: translateY(22px) scale(.985); transition: .7s .5s; }
+  .scene.active .stage { opacity: 1; transform: none; }
+  .caption { font-size: 15px; color: #D2D2D2; line-height: 1.7; max-width: 820px; margin-top: 28px;
+    opacity: 0; transform: translateY(14px); transition: .6s .8s; }
+  .scene.active .caption { opacity: 1; transform: none; }
+  .recap { font-size: 12px; color: #7a7a7a; margin-top: 12px; opacity: 0; transition: .6s 1s; }
+  .scene.active .recap { opacity: 1; }
+  .recap b { color: #C0DD97; }
+  .kw { border-bottom: 1px dotted rgba(140,180,220,.55); cursor: help; color: #cdd9e4; font-weight: 500; }
+  .kw:hover { background: rgba(24,95,165,.28); border-bottom-color:#6FA8DC; }
+  svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .sv-th { font-size: 15px; font-weight: 700; fill: #EDEDED; }
+  .sv-ts { font-size: 13px; fill: #B0B0B0; }
+  .sv-tk { font-size: 11px; fill: #8a8a8a; }
+  .sv-an { font-size: 13px; font-weight: 700; }
+  .axis { stroke: #3a3a40; stroke-width: 1; }
+  .curve { fill: none; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 1.3s ease .3s; }
+  .scene.active .curve { stroke-dashoffset: 0; }
+  .pop { opacity: 0; transform-box: fill-box; transform-origin: center; transform: scale(0); transition: .5s cubic-bezier(.2,1.5,.4,1); }
+  .scene.active .pop { opacity: 1; transform: scale(1); }
+  .scene.active .d1{transition-delay:.9s}.scene.active .d2{transition-delay:1.1s}.scene.active .d3{transition-delay:1.3s}
+  .scene.active .d4{transition-delay:1.5s}.scene.active .d5{transition-delay:1.7s}
+  .hot { cursor: help; }
+  circle.hot:hover { filter: brightness(1.3); }
+  rect.hot:hover, g.hot:hover, text.hot:hover { filter: brightness(1.3); }
+  /* 代码排版 */
+  .code { font-family: "Consolas","Menlo","SFMono-Regular",monospace; font-size: 12.5px; fill: #cfcfcf; }
+  .cmt { fill: #7fa06a; }
+  .cvar { fill: #6FA8DC; }
+  .cstr { fill: #E8B84B; }
+  .cfun { fill: #C0DD97; }
+  .cred { fill: #E8574A; font-weight: 700; }
+  .cgrn { fill: #C0DD97; font-weight: 700; }
+  .panelL { fill: #1a1517; stroke: #E8574A; stroke-width: 1.5; }
+  .panelR { fill: #161b16; stroke: #C0DD97; stroke-width: 1.5; }
+  .nav { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px; z-index: 10; }
+  .nav .dot { width: 9px; height: 9px; border-radius: 50%; background: #4a4a52; cursor: pointer; transition: .3s; }
+  .nav .dot.on { background: #C0DD97; transform: scale(1.5); }
+  .arrow { position: fixed; top: 50%; transform: translateY(-50%); z-index: 10; width: 46px; height: 46px; border-radius: 50%;
+    border: 1px solid #3a3a40; background: rgba(20,20,22,.6); color: #EDEDED; font-size: 20px; cursor: pointer; transition: .25s; backdrop-filter: blur(4px); }
+  .arrow:hover { background: #C0DD97; color: #141416; border-color: #C0DD97; }
+  .arrow.l { left: 22px; } .arrow.r { right: 22px; }
+  .arrow[disabled] { opacity: .25; cursor: default; }
+  .progress { position: fixed; top: 0; left: 0; height: 3px; background: #C0DD97; z-index: 11; transition: width .5s; }
+  .hint { position: fixed; bottom: 22px; right: 26px; font-size: 12px; color: #6a6a72; z-index: 10; }
+  .stepno { position: fixed; top: 20px; right: 26px; font-size: 12px; color: #6a6a72; z-index: 10; letter-spacing: 1px; }
+  #tip { position: fixed; z-index: 99; max-width: 340px; background: #fff; color: #2C2C2A; font-size: 12.5px; line-height: 1.6;
+    padding: 9px 12px; border-radius: 8px; box-shadow: 0 8px 26px rgba(0,0,0,.4); pointer-events: none; opacity: 0; transition: opacity .12s; }
+  #tip b { color: #27500A; }
+  .big { font-size: clamp(30px, 6vw, 60px); font-weight: 900; line-height: 1.1; }
+  .grad { background: linear-gradient(90deg,#E8574A,#EDEDED,#C0DD97); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  /* 可悬停元素的可见标记：SVG 文字加虚线下划线，让人一眼看出"这行有解释" */
+  text.hot { cursor: help; text-decoration-line: underline; text-decoration-style: dotted; text-decoration-color: #6FA8DC; text-underline-offset: 3px; }
+  g.hot > rect { stroke-dasharray: 5 3; }
+  .legend { font-size: 11.5px; fill: #6a6a72; }
+  .badge { font-size: 11px; font-weight: 700; fill: #141416; }
+  /* 统一卡片圆角，建立一致的"卡片"语言 */
+  svg rect { rx: 10px; ry: 10px; }
+  /* 交互 demo */
+  .demo { display:flex; align-items:center; justify-content:center; gap:16px; margin-bottom:26px; flex-wrap:wrap; opacity:0; transform:translateY(18px); transition:.6s .4s; }
+  .scene.active .demo { opacity:1; transform:none; }
+  .demo button { font-size:17px; font-weight:700; padding:10px 24px; border-radius:999px; border:2px solid #6FA8DC; background:#1a2430; color:#A9CDF0; cursor:pointer; transition:transform .12s, background .2s, border-color .2s, color .2s; }
+  .demo button:hover { filter:brightness(1.15); }
+  .demo button:active { transform:scale(.93); }
+  .demo .meta { font-size:13px; color:#8a8a8a; }
+  .demo .meta b { color:#C0DD97; }
+  /* 点击时代码"跑起来"的高亮 */
+  text.fire { fill:#fff !important; }
+  g.fire circle { stroke:#fff; stroke-width:2.5; filter:drop-shadow(0 0 6px rgba(255,255,255,.75)); }
+  g.fire rect { stroke:#fff !important; stroke-width:2.5; filter:drop-shadow(0 0 6px rgba(255,255,255,.5)); }
+  line.flow { stroke:#E8B84B !important; stroke-width:4; filter:drop-shadow(0 0 5px rgba(232,184,75,.8)); }
+  /* 结尾完整链 */
+  .chain { margin-top:22px; font-size:14px; color:#D2D2D2; line-height:2; max-width:820px; }
+  .chain b { color:#C0DD97; font-weight:700; }
+  .chain-k { display:inline-block; font-size:11px; letter-spacing:2px; color:#8a8a8a; border:1px solid #3a3a40; border-radius:6px; padding:2px 8px; margin-right:10px; text-transform:uppercase; vertical-align:middle; }
+  /* 次要按钮 */
+  .demo button.ghost { border-color:#3a3a40; background:transparent; color:#B0B0B0; font-size:14px; padding:9px 18px; }
+  .demo button.ghost:hover { border-color:#6FA8DC; color:#A9CDF0; }
+  /* 类 Excel 架构对照表 */
+  .cmp { width:100%; max-width:960px; border-collapse:collapse; font-size:14.5px; text-align:left; line-height:1.5; }
+  .cmp th, .cmp td { border:1px solid #2b2b31; padding:12px 16px; vertical-align:middle; }
+  .cmp thead th { background:#1d1d22; color:#EDEDED; font-weight:700; font-size:15px; }
+  .cmp thead th.cL { color:#E8574A; } .cmp thead th.cR { color:#C0DD97; }
+  .cmp td.dim { background:#191920; color:#C0DD97; font-weight:700; white-space:nowrap; }
+  .cmp tbody tr:nth-child(even) td { background:#161619; }
+  .cmp tbody tr:nth-child(even) td.dim { background:#141419; }
+  .cmp td:nth-child(2) { color:#e3b7b2; }
+  .cmp td:nth-child(3) { color:#c9ddb4; }
+  /* Excel 类比：两张并排迷你电子表格 */
+  .extitle { font-size:12.5px; color:#8a8a8a; text-align:center; margin-bottom:12px; letter-spacing:1px; }
+  .exwrap { display:flex; gap:30px; justify-content:center; align-items:flex-start; width:100%; max-width:820px; margin:0 auto; flex-wrap:wrap; }
+  .excol { flex:1 1 340px; max-width:460px; }
+  .exhead { font-size:14px; font-weight:700; margin-bottom:10px; text-align:center; }
+  .exhead.red { color:#E8574A; } .exhead.green { color:#C0DD97; }
+  .sheet { width:100%; border-collapse:collapse; }
+  .sheet th { background:#1d1d22; color:#B0B0B0; font-weight:600; font-size:12.5px; padding:8px 6px; border:1px solid #2b2b31; }
+  .sheet td.cell { border:1px solid #2b2b31; background:#161619; text-align:center; padding:10px 6px; font-variant-numeric:tabular-nums; }
+  .cell .fv { display:block; font-size:20px; font-weight:800; color:#EDEDED; }
+  .cell .fx { display:block; font-size:11px; color:#7a7a7a; font-family:"Consolas",monospace; margin-bottom:3px; }
+  .cell.src { background:#16200f; } .cell.src .fv { color:#C0DD97; }
+  .tag { font-size:10px; color:#C0DD97; border:1px solid #C0DD97; border-radius:4px; padding:0 4px; }
+  .exnote { font-size:12.5px; margin-top:10px; text-align:center; color:#8a8a8a; }
+  .exnote.red b { color:#E8574A; } .exnote.green b { color:#C0DD97; }
+  .cell.mflash { background:#3a1414 !important; box-shadow:0 0 0 2px #E8574A inset; }
+  .cell.aflash { background:#16300f !important; box-shadow:0 0 0 2px #C0DD97 inset; }
+  .cell.sflash { box-shadow:0 0 0 2px #6FA8DC inset; }
+  g.mf rect { fill:#3a1414 !important; stroke:#E8574A !important; } g.mf text { fill:#F0A9A2 !important; }
+  g.af rect { fill:#16300f !important; stroke:#C0DD97 !important; } g.af text { fill:#C0DD97 !important; }
+  g.sf rect { stroke:#6FA8DC !important; stroke-width:2.5; }
+</style>
+</head>
+<body>
+<div class="progress" id="bar"></div>
+<div class="stepno" id="stepno"></div>
+<div class="deck" id="deck">
+
+  <!-- 封面 -->
+  <section class="scene">
+    <div class="kicker">对照教学 · 幕布模式</div>
+    <h1 class="title big">普通写法 <span style="color:#6a6a72">vs</span> <span class="grad" style="cursor:help" data-tip="React：一个用来做网页界面的库。你只描述'数据长这样时，界面该长这样'，数据一变，界面由它自动更新。">React</span></h1>
+    <div class="subtitle">同一件事，两种活法 —— 看完就能分清。</div>
+    <div class="caption">按 → 开始，第一幕就能亲手点一个「点赞」按钮试试。</div>
+  </section>
+
+  <!-- 第1幕：代码对照 -->
+  <section class="scene">
+    <div class="kicker">第 1 幕 · 细节：同一个"点赞 +1"，代码长什么样</div>
+    <h1 class="title">左边你亲手改界面，右边你只说"该长这样"</h1>
+    <div class="demo">
+      <button id="likeBtn" type="button">👍 点赞 · <span id="likeN">0</span></button>
+      <span class="meta">点它 → 左边红点会一格格手动跑完，右边只亮 ①、②③ 自动完成</span>
+    </div>
+    <div class="stage" style="width:min(820px,92vw)">
+      <svg viewBox="0 0 900 400">
+        <line x1="450" y1="18" x2="450" y2="392" stroke="#3a3a40" stroke-width="1" stroke-dasharray="4 4"/>
+        <!-- 左：普通 -->
+        <text class="sv-an pop" x="225" y="26" text-anchor="middle" fill="#E8574A">普通写法（命令式）</text>
+        <rect class="pop panelL" x="20" y="42" width="410" height="252" rx="10"/>
+        <!-- 执行流竖线 -->
+        <line class="curve d1" x1="42" y1="82" x2="42" y2="206" stroke="#E8574A" stroke-width="2" marker-end="url(#arL)"/>
+        <!-- 代码 -->
+        <text class="code" x="60" y="66">let count = 0;</text>
+        <g class="pop d1"><circle cx="42" cy="92" r="9" fill="#E8574A"/><text class="badge" x="42" y="96" text-anchor="middle">1</text></g>
+        <text class="code hot" x="60" y="94" data-tip="① 点击按钮，触发这个事件处理函数——普通写法里，你得自己监听事件、自己写改动逻辑。">btn.<tspan class="cfun">onclick</tspan> = () =&gt; {</text>
+        <g class="pop d2"><circle cx="42" cy="118" r="9" fill="#E8574A"/><text class="badge" x="42" y="122" text-anchor="middle">2</text></g>
+        <text class="code hot" x="60" y="120" data-tip="② 数据 count 自己 +1。这一步两边其实一样：都是在改数据。">  count++;</text>
+        <g class="pop d3"><circle cx="42" cy="144" r="9" fill="#E8574A"/><text class="badge" x="42" y="148" text-anchor="middle">3</text></g>
+        <text class="code hot" x="60" y="146" data-tip="手动①：数据变了，你得亲手找到数字元素、把它的文字改成新值。这就是'同步'。">  num.text = count; <tspan class="cmt">// 手动改文字</tspan></text>
+        <text class="code" x="60" y="172">  if (count % 2)</text>
+        <g class="pop d4"><circle cx="42" cy="196" r="9" fill="#E8574A"/><text class="badge" x="42" y="200" text-anchor="middle">4</text></g>
+        <text class="code hot" x="60" y="198" data-tip="手动②：连'奇数变红'这种样式，也要你亲手判断、亲手改。规则一多，这类代码满地都是。">    num.color = <tspan class="cstr">'red'</tspan>;<tspan class="cmt"> // 手动改色</tspan></text>
+        <text class="code" x="60" y="222">};</text>
+        <text class="sv-tk pop d3" x="225" y="272" text-anchor="middle" fill="#E8574A">第 3、4 步：界面靠你一行行手动改</text>
+        <!-- 右：React -->
+        <text class="sv-an pop" x="675" y="26" text-anchor="middle" fill="#C0DD97">React 写法（声明式）</text>
+        <rect class="pop panelR" x="470" y="42" width="410" height="252" rx="10"/>
+        <g class="pop d2"><circle cx="492" cy="64" r="9" fill="#C0DD97"/><text class="badge" x="492" y="68" text-anchor="middle">2</text></g>
+        <text class="code hot" x="510" y="66" data-tip="② 只要数据变了，React 就把这个函数整个重新跑一遍——这就是'重渲染'。">function <tspan class="cfun">Like</tspan>() {</text>
+        <text class="code hot" x="510" y="94" data-tip="useState 声明一份'会变的数'。改它，React 自动重跑上面的函数，你不用手动碰 DOM。">  <tspan class="cvar">const</tspan> [n, setN] = <tspan class="cfun">useState</tspan>(0)</text>
+        <text class="code" x="510" y="120">  <tspan class="cvar">return</tspan> (</text>
+        <g class="pop d3"><circle cx="492" cy="142" r="9" fill="#C0DD97"/><text class="badge" x="492" y="146" text-anchor="middle">3</text></g>
+        <text class="code hot" x="510" y="146" data-tip="③ 界面自动更新：颜色由数据算出，n 变了这里自动变，你一行同步代码都不用写。">    color: n%2 ? <tspan class="cstr">'red'</tspan>:<tspan class="cstr">'gray'</tspan></text>
+        <g class="pop d1"><circle cx="492" cy="168" r="9" fill="#C0DD97"/><text class="badge" x="492" y="172" text-anchor="middle">1</text></g>
+        <text class="code hot" x="510" y="172" data-tip="① 点击只做一件事：改数据 setN(n+1)。它不直接动界面。">    onClick={() =&gt; <tspan class="cfun">setN</tspan>(n+1)}&gt;</text>
+        <text class="code" x="510" y="198">    👍 {n}</text>
+        <text class="code" x="510" y="222">  );}</text>
+        <!-- 改数据→重跑 回环箭头 -->
+        <polyline class="hot d2" points="852,172 874,172 874,66 856,66" fill="none" stroke="#C0DD97" stroke-width="2" marker-end="url(#arG)" data-tip="闭环：① 改数据 → ② 重跑函数 → ③ 界面自动变。你只写了①，②③ 是 React 干的。"/>
+        <text class="sv-tk pop d3" x="675" y="272" text-anchor="middle" fill="#C0DD97">你只写①，②③ 由 React 自动跑</text>
+        <!-- 左：普通小结（带实时计数） -->
+        <g class="pop d4">
+          <rect x="20" y="306" width="410" height="62" rx="10" fill="#241a1a" stroke="#E8574A"/>
+          <text class="sv-an" x="225" y="332" text-anchor="middle" fill="#E8574A">🛠 你手动执行 <tspan id="manN">0</tspan> 步</text>
+          <text class="sv-tk" x="225" y="354" text-anchor="middle" fill="#E8574A">每改 1 处数据 → 都得挨个同步界面</text>
+        </g>
+        <!-- 右：React 小结（带实时计数） -->
+        <g class="pop d5">
+          <rect x="470" y="306" width="410" height="62" rx="10" fill="#16200f" stroke="#C0DD97"/>
+          <text class="sv-an" x="675" y="332" text-anchor="middle" fill="#C0DD97">⚡ React 已重渲染 <tspan id="renN">1</tspan> 次</text>
+          <text class="sv-tk" x="675" y="354" text-anchor="middle" fill="#C0DD97">只改数据 → 界面自动同步，你 0 处不用管</text>
+        </g>
+        <defs>
+          <marker id="arL" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#E8574A"/></marker>
+          <marker id="arG" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#C0DD97"/></marker>
+        </defs>
+      </svg>
+    </div>
+    <div class="stage" style="width:min(820px,92vw);margin-top:8px">
+      <div class="extitle">同一件事，用 Excel 表格看 👇</div>
+      <div class="exwrap">
+        <div class="excol">
+          <div class="exhead red">普通 · 没有公式，全靠手填</div>
+          <table class="sheet">
+            <thead><tr><th>点赞数</th><th>显示</th><th>颜色</th></tr></thead>
+            <tbody><tr>
+              <td class="cell" id="lk0">0</td>
+              <td class="cell" id="lk1">👍 0</td>
+              <td class="cell" id="lk2">灰</td>
+            </tr></tbody>
+          </table>
+          <div class="exnote red">点一下 → 这 3 格都要<b>手动改</b></div>
+        </div>
+        <div class="excol">
+          <div class="exhead green">React · 只有点赞数是数据，其余是公式</div>
+          <table class="sheet">
+            <thead><tr><th>点赞数 <span class="tag">数据</span></th><th>显示</th><th>颜色</th></tr></thead>
+            <tbody><tr>
+              <td class="cell src" id="lkR0"><span class="fv">0</span></td>
+              <td class="cell"><span class="fx">=👍&amp;数量</span><span class="fv" id="lkR1">👍 0</span></td>
+              <td class="cell"><span class="fx">=数量%2?红:灰</span><span class="fv" id="lkR2">灰</span></td>
+            </tr></tbody>
+          </table>
+          <div class="exnote green">点一下 → 只改"点赞数"，显示/颜色<b>自动重算</b></div>
+        </div>
+      </div>
+    </div>
+    <div class="caption">点上面按钮：左边按 ①→②→③→④ 一格格点亮（你得亲手做这么多步），右边只亮 ①、②③ 自动跑完——这就是"改界面"和"改数据"的区别。</div>
+  </section>
+
+  <!-- 第2幕：一个数量三处同步（合并 购物车 + Excel 类比 · 交互） -->
+  <section class="scene">
+    <div class="kicker">第 2 幕 · 一个数量，三处同步（就像 Excel · 可交互）</div>
+    <h1 class="title">加一件：普通改 3 处，React 只改 1 处</h1>
+    <div class="demo">
+      <button id="addBtn" type="button">🛒 加一件 +1</button>
+      <span class="meta">就像 Excel：左边每格都是<b>手填的死数字</b>，右边只有"数量"是数据、其余是<b>公式</b>，改一处自动重算</span>
+    </div>
+    <div class="stage">
+      <svg viewBox="0 0 900 300">
+        <line x1="450" y1="10" x2="450" y2="290" stroke="#3a3a40" stroke-width="1" stroke-dasharray="4 4"/>
+        <!-- 左：普通 手填 -->
+        <text class="sv-an pop" x="225" y="20" text-anchor="middle" fill="#E8574A">普通 · 每格都是手填的死数字</text>
+        <rect class="pop" x="20" y="30" width="410" height="240" rx="10" fill="#1d1d22" stroke="#E8574A"/>
+        <g id="Lg1" class="pop d1 hot" data-tip="普通写法：商品行的数量是你手动写死的一处，跟别处没有关联。">
+          <rect x="44" y="46" width="362" height="54" rx="10" fill="#241a1a" stroke="#6a4a48"/>
+          <text class="sv-ts" x="62" y="72">📦 商品行</text>
+          <text class="code" x="62" y="90" fill="#7a7a7a">手填值</text>
+          <text id="Ln" class="sv-th" x="390" y="79" text-anchor="end" fill="#EDEDED">× 0</text>
+        </g>
+        <g id="Lg2" class="pop d2 hot" data-tip="顶部角标是第二处，独立于商品行。">
+          <rect x="44" y="112" width="362" height="54" rx="10" fill="#241a1a" stroke="#6a4a48"/>
+          <text class="sv-ts" x="62" y="138">🔴 顶部角标</text>
+          <text class="code" x="62" y="156" fill="#7a7a7a">手填值</text>
+          <text id="Bn" class="sv-th" x="390" y="145" text-anchor="end" fill="#EDEDED">0</text>
+        </g>
+        <g id="Lg3" class="pop d3 hot" data-tip="合计是第三处，也是手填。加数量时这三处都得手动改，漏一个就对不上。">
+          <rect x="44" y="178" width="362" height="54" rx="10" fill="#241a1a" stroke="#6a4a48"/>
+          <text class="sv-ts" x="62" y="204">💰 合计</text>
+          <text class="code" x="62" y="222" fill="#7a7a7a">手填值</text>
+          <text id="Tn" class="sv-th" x="390" y="211" text-anchor="end" fill="#EDEDED">¥0</text>
+        </g>
+        <text class="sv-tk pop d3" x="225" y="262" text-anchor="middle" fill="#E8574A">加一件 → 这 3 格都要手动改</text>
+        <!-- 右：React 公式 -->
+        <text class="sv-an pop" x="675" y="20" text-anchor="middle" fill="#C0DD97">React · 只有数量是数据，其余是公式</text>
+        <rect class="pop" x="470" y="30" width="410" height="240" rx="10" fill="#161b16" stroke="#C0DD97"/>
+        <g id="Sg" class="pop hot" data-tip="唯一数据源（state）：数量只存这一份，三个地方都靠公式引用它。">
+          <rect x="590" y="40" width="170" height="40" rx="10" fill="#16200f" stroke="#C0DD97"/>
+          <text id="Rp" class="sv-th" x="675" y="66" text-anchor="middle" fill="#C0DD97">数量 = 0</text>
+        </g>
+        <!-- 总线式连接：竖 stub → 横 bus → 三叉下探（标签移到右侧空白，不压字） -->
+        <g class="pop d1">
+          <line x1="675" y1="80" x2="675" y2="98" stroke="#6a6a72" stroke-width="2"/>
+          <line x1="542" y1="98" x2="808" y2="98" stroke="#6a6a72" stroke-width="2"/>
+          <line id="A1" x1="542" y1="98" x2="542" y2="120" stroke="#6a6a72" stroke-width="2" marker-end="url(#arD)"/>
+          <line id="A2" x1="675" y1="98" x2="675" y2="120" stroke="#6a6a72" stroke-width="2" marker-end="url(#arD)"/>
+          <line id="A3" x1="808" y1="98" x2="808" y2="120" stroke="#6a6a72" stroke-width="2" marker-end="url(#arD)"/>
+          <text class="sv-tk" x="684" y="93" fill="#A9CDF0">引用 / props ↓</text>
+        </g>
+        <g id="Fg1" class="pop d2 hot" data-tip="公式格：商品行 = 数量。数量一变，它自动重算。">
+          <rect x="486" y="124" width="112" height="58" rx="10" fill="#1a2430" stroke="#6FA8DC"/>
+          <text class="code" x="542" y="144" text-anchor="middle" fill="#7a7a7a">=数量</text>
+          <text id="C1" class="sv-th" x="542" y="171" text-anchor="middle" fill="#EDEDED">× 0</text>
+        </g>
+        <g id="Fg2" class="pop d3 hot" data-tip="公式格：角标 = 数量。">
+          <rect x="619" y="124" width="112" height="58" rx="10" fill="#1a2430" stroke="#6FA8DC"/>
+          <text class="code" x="675" y="144" text-anchor="middle" fill="#7a7a7a">=数量</text>
+          <text id="C2" class="sv-th" x="675" y="171" text-anchor="middle" fill="#EDEDED">0</text>
+        </g>
+        <g id="Fg3" class="pop d3 hot" data-tip="公式格：合计 = 数量 × 单价（派生值，自动算）。">
+          <rect x="752" y="124" width="112" height="58" rx="10" fill="#1a2430" stroke="#6FA8DC"/>
+          <text class="code" x="808" y="144" text-anchor="middle" fill="#7a7a7a">=数量×单价</text>
+          <text id="C3" class="sv-th" x="808" y="171" text-anchor="middle" fill="#EDEDED">¥0</text>
+        </g>
+        <text class="sv-tk pop d4" x="675" y="212" text-anchor="middle" fill="#C0DD97">加一件 → 只改数量，公式自动重算</text>
+        <g class="pop d4">
+          <rect x="490" y="228" width="370" height="30" rx="10" fill="#16200f" stroke="#3a3a40"/>
+          <text class="sv-ts" x="675" y="248" text-anchor="middle" fill="#B0B0B0">你只管 <tspan class="cgrn">数量 +1</tspan> ｜ 三处同步交给 <tspan class="cgrn">React</tspan></text>
+        </g>
+        <defs>
+          <marker id="arD" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6FA8DC"/></marker>
+        </defs>
+      </svg>
+    </div>
+    <div class="stage" style="margin-top:8px">
+      <div class="extitle">同一件事，用 Excel 表格看 👇</div>
+      <div class="exwrap">
+        <div class="excol">
+          <div class="exhead red">普通 · 没有公式，全靠手填</div>
+          <table class="sheet">
+            <thead><tr><th>数量</th><th>商品行</th><th>顶部角标</th><th>合计</th></tr></thead>
+            <tbody><tr>
+              <td class="cell" id="exL0">0</td>
+              <td class="cell" id="exL1">0</td>
+              <td class="cell" id="exL2">0</td>
+              <td class="cell" id="exL3">¥0</td>
+            </tr></tbody>
+          </table>
+          <div class="exnote red">加一件 → 这 4 格都要<b>手动改</b></div>
+        </div>
+        <div class="excol">
+          <div class="exhead green">React · 只有数量是数据，其余是公式</div>
+          <table class="sheet">
+            <thead><tr><th>数量 <span class="tag">数据</span></th><th>商品行</th><th>顶部角标</th><th>合计</th></tr></thead>
+            <tbody><tr>
+              <td class="cell src" id="exR0"><span class="fv">0</span></td>
+              <td class="cell"><span class="fx">=数量</span><span class="fv" id="exR1">0</span></td>
+              <td class="cell"><span class="fx">=数量</span><span class="fv" id="exR2">0</span></td>
+              <td class="cell"><span class="fx">=数量×单价</span><span class="fv" id="exR3">¥0</span></td>
+            </tr></tbody>
+          </table>
+          <div class="exnote green">加一件 → 只改"数量"1 格，公式格<b>自动重算</b></div>
+        </div>
+      </div>
+    </div>
+    <div class="caption">Excel 能"改一格、别处自动变"，是因为你事先写了公式（依赖）。React 做的是同一件事：只声明一次"谁等于谁"，<b style="color:#C0DD97">数据一变，所有引用它的地方自动重算</b>。</div>
+  </section>
+
+  <!-- 第3幕：组件树 已并入第2幕购物车案例 -->
+
+
+  <!-- 第4幕：数据流 已并入第3幕交互页 -->
+
+
+  <!-- 第3幕：组件怎么协作（交互）见下 -->
+
+
+  <!-- Excel 类比已并入第2幕 -->
+
+
+
+
+  <!-- 结尾 -->
+  <section class="scene">
+    <div class="kicker">完成 · 一句话</div>
+    <h1 class="title big"><span style="color:#E8574A">普通</span> 改界面，<span style="color:#C0DD97;cursor:help" data-tip="React：一个做网页界面的库。你只描述数据和界面的对应关系，界面变化它自动同步。">React</span> 改数据</h1>
+    <div class="subtitle">记住这一句就够了 —— 数据一变，界面自动跟着变。</div>
+    <div class="caption">回朋友：React 不是"把 <span class="kw" data-tip="HTML：用标签描述网页内容的语言。">HTML</span> 拆成组件"，而是让你<b>只管数据、界面交给它同步</b>。</div>
+    <div class="chain"><span class="chain-k">完整学习链</span><b>① 命令式 vs 声明式（点赞）</b> → <b>② 一个数量三处同步 · 就像 Excel（购物车 + 公式）</b></div>
+  </section>
+
+</div>
+
+<button class="arrow l" id="prev" aria-label="上一幕">‹</button>
+<button class="arrow r" id="next" aria-label="下一幕">›</button>
+<div class="nav" id="nav"></div>
+<div class="hint">← / → · 滚轮 · 圆点翻页 ｜ 虚线下划线代码 / 虚线框 = 悬停看解释</div>
+<div id="tip"></div>
+
+<script>
+  var scenes = Array.prototype.slice.call(document.querySelectorAll('.scene'));
+  var nav = document.getElementById('nav');
+  var bar = document.getElementById('bar');
+  var stepno = document.getElementById('stepno');
+  var cur = 0, N = scenes.length;
+  scenes.forEach(function(_, i){
+    var d = document.createElement('div'); d.className = 'dot'; d.dataset.i = i;
+    d.addEventListener('click', function(){ go(i); }); nav.appendChild(d);
+  });
+  var dots = Array.prototype.slice.call(nav.children);
+  function go(i){
+    if (i < 0 || i >= N) return;
+    scenes.forEach(function(s, k){
+      s.classList.toggle('active', k === i);
+      s.classList.toggle('prev', k < i);
+    });
+    dots.forEach(function(d, k){ d.classList.toggle('on', k === i); });
+    bar.style.width = (i / (N - 1) * 100) + '%';
+    stepno.textContent = (i === 0 || i === N - 1) ? '' : ('第 ' + i + ' / ' + (N - 2) + ' 步');
+    document.getElementById('prev').toggleAttribute('disabled', i === 0);
+    document.getElementById('next').toggleAttribute('disabled', i === N - 1);
+    cur = i;
+  }
+  document.getElementById('prev').addEventListener('click', function(){ go(cur - 1); });
+  document.getElementById('next').addEventListener('click', function(){ go(cur + 1); });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); go(cur + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(cur - 1); }
+  });
+  var wheelLock = false;
+  document.addEventListener('wheel', function(e){
+    if (wheelLock) return;
+    if (Math.abs(e.deltaY) < 24) return;
+    wheelLock = true; go(e.deltaY > 0 ? cur + 1 : cur - 1);
+    setTimeout(function(){ wheelLock = false; }, 750);
+  }, { passive: true });
+  var tx = null;
+  document.addEventListener('touchstart', function(e){ tx = e.touches[0].clientX; }, { passive: true });
+  document.addEventListener('touchend', function(e){
+    if (tx === null) return; var dx = e.changedTouches[0].clientX - tx;
+    if (Math.abs(dx) > 50) go(dx < 0 ? cur + 1 : cur - 1); tx = null;
+  }, { passive: true });
+  var tip = document.getElementById('tip');
+  function show(t, x, y){ tip.innerHTML = t; tip.style.opacity = 1;
+    var w = tip.offsetWidth, h = tip.offsetHeight, l = x + 14, tp = y + 16;
+    if (l + w > innerWidth - 8) l = x - w - 14; if (tp + h > innerHeight - 8) tp = y - h - 12;
+    tip.style.left = l + 'px'; tip.style.top = tp + 'px'; }
+  function hide(){ tip.style.opacity = 0; }
+  document.querySelectorAll('[data-tip]').forEach(function(el){
+    el.addEventListener('mouseenter', function(e){ show(el.getAttribute('data-tip'), e.clientX, e.clientY); });
+    el.addEventListener('mousemove', function(e){ show(el.getAttribute('data-tip'), e.clientX, e.clientY); });
+    el.addEventListener('mouseleave', hide);
+  });
+  // —— 第 1 幕交互 demo：点按钮看代码怎么"跑" ——
+  var likeBtn = document.getElementById('likeBtn');
+  if (likeBtn) {
+    var likeN = document.getElementById('likeN');
+    var manN = document.getElementById('manN');
+    var renN = document.getElementById('renN');
+    var svg1 = scenes[1] ? scenes[1].querySelector('svg') : null;
+    var n = 0, L = [], R = [], LB = [], RB = [];
+    if (svg1) {
+      Array.prototype.forEach.call(svg1.querySelectorAll('text.code.hot'), function(t){
+        if (t.getAttribute('x') === '60') L.push(t); else if (t.getAttribute('x') === '510') R.push(t);
+      });
+      Array.prototype.forEach.call(svg1.querySelectorAll('g'), function(g){
+        var c = g.querySelector('circle'); if (!c) return;
+        var f = c.getAttribute('fill');
+        if (f === '#E8574A') LB.push(g); else if (f === '#C0DD97') RB.push(g);
+      });
+    }
+    function fire(el, dur){ if (!el) return; el.classList.add('fire'); setTimeout(function(){ el.classList.remove('fire'); }, dur); }
+    function runDemo(){
+      n++;
+      if (likeN) likeN.textContent = n;
+      if (manN) manN.textContent = n * 4;
+      if (renN) renN.textContent = n + 1;
+      if (n % 2) { likeBtn.style.borderColor = '#E8574A'; likeBtn.style.color = '#F0A9A2'; likeBtn.style.background = '#241a1a'; }
+      else { likeBtn.style.borderColor = '#6FA8DC'; likeBtn.style.color = '#A9CDF0'; likeBtn.style.background = '#1a2430'; }
+      for (var i = 0; i < 4; i++) { (function(i){ setTimeout(function(){ fire(L[i],260); fire(LB[i],260); }, i*170); })(i); }
+      setTimeout(function(){ fire(R[3],300); fire(RB[2],300); }, 0);
+      setTimeout(function(){ fire(R[0],600); fire(RB[0],600); }, 220);
+      setTimeout(function(){ fire(R[2],600); fire(RB[1],600); }, 460);
+      // 下：Excel 表格同步驱动
+      var col = (n % 2) ? '红' : '灰';
+      function lk(id,v){ var e=document.getElementById(id); if(e) e.textContent=v; }
+      function lkf(id,c,d){ var e=document.getElementById(id); if(!e)return; e.classList.add(c); setTimeout(function(){ e.classList.remove(c); }, d); }
+      lk('lk0',''+n); lk('lk1','👍 '+n); lk('lk2',col);
+      lkf('lk0','mflash',420); setTimeout(function(){ lkf('lk1','mflash',420); },120); setTimeout(function(){ lkf('lk2','mflash',420); },240);
+      var r0=document.getElementById('lkR0'); if(r0) r0.querySelector('.fv').textContent=n;
+      lk('lkR1','👍 '+n); lk('lkR2',col);
+      lkf('lkR0','sflash',520); setTimeout(function(){ lkf('lkR1','aflash',420); },280); setTimeout(function(){ lkf('lkR2','aflash',420); },440);
+      likeBtn.blur();
+    }
+    likeBtn.addEventListener('click', runDemo);
+  }
+  // —— 第 2 幕交互：加一件（合并 购物车 + Excel 类比）——
+  var addBtn = document.getElementById('addBtn');
+  if (addBtn) {
+    var q = 0;
+    function gc(id){ return document.getElementById(id); }
+    function setT(id,v){ var e=gc(id); if(e) e.textContent=v; }
+    function cls(id,c,d){ var e=gc(id); if(!e)return; e.classList.add(c); setTimeout(function(){ e.classList.remove(c); }, d); }
+    addBtn.addEventListener('click', function(){
+      q++;
+      var total = '¥' + (q*99);
+      // 上：流程图 —— 只改"数量"数据格，公式格自动重算
+      setT('Rp','数量 = '+q); setT('C1','× '+q); setT('C2',''+q); setT('C3',total);
+      cls('Sg','sf',520);
+      ['A1','A2','A3'].forEach(function(id){ var e=gc(id); if(e){ e.classList.add('flow'); setTimeout(function(){ e.classList.remove('flow'); },650); } });
+      ['Fg1','Fg2','Fg3'].forEach(function(id,i){ setTimeout(function(){ cls(id,'af',420); }, 260 + i*170); });
+      setT('Ln','× '+q); setT('Bn',''+q); setT('Tn',total);
+      ['Lg1','Lg2','Lg3'].forEach(function(id,i){ setTimeout(function(){ cls(id,'mf',420); }, i*170); });
+      // 下：Excel 表格 —— 同步驱动
+      var t = '¥' + (q*99);
+      setT('exL0',''+q); setT('exL1',''+q); setT('exL2',''+q); setT('exL3',t);
+      ['exL0','exL1','exL2','exL3'].forEach(function(id,i){ setTimeout(function(){ cls(id,'mflash',420); }, i*150); });
+      var r0=gc('exR0'); if(r0) r0.querySelector('.fv').textContent=q;
+      setT('exR1',''+q); setT('exR2',''+q); setT('exR3',t);
+      cls('exR0','sflash',520);
+      ['exR1','exR2','exR3'].forEach(function(id,i){ setTimeout(function(){ cls(id,'aflash',420); }, 280 + i*160); });
+      addBtn.blur();
+    });
+  }
+  go(0);
+</script>
+</body>
+</html>

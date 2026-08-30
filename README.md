@@ -4,6 +4,15 @@ Marsoon 期权市场结构看板。项目使用 Next.js App Router、React、Typ
 
 当前版本的目标是先完成可扩展的产品骨架和 Dashboard，再逐步接入 Gamma、0DTE、资金流和波动率模块。
 
+## 教学课件（开源）
+
+Marsoon 团队同步开源了面向零基础小白的期权看板交互教学：**不用公式，看懂机构的钱堆在哪**。
+
+- [面板 01 Overview 速成课（HTML，双击即开）](docs/teaching/期权看板速成课_面板01_整体框架_交互教学.html)
+- [面板 03 Positioning 速成课（HTML，双击即开）](docs/teaching/期权看板速成课_面板03_整体框架_交互教学.html)
+- [第一阶段教学设计 + 概念→接口字段映射](docs/teaching/第一阶段教学设计_面板01_03.md)
+- [教学系列总览（含辅助材料与规范）](docs/teaching/README.md)
+
 ## 当前功能
 
 - NQ、ES、GC 产品切换。

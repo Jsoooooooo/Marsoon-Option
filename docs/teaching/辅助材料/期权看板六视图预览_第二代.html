@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>期权看板 · 第二代（补强 + 新增）｜GEX 交易视角</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: #F7F7F5; color: #2C2C2A; margin: 0; padding: 28px; line-height: 1.6;
+  }
+  .header { max-width: 1120px; margin: 0 auto 8px; }
+  .header h1 { font-size: 22px; font-weight: 600; margin: 0 0 6px; }
+  .header p { font-size: 14px; color: #5F5E5A; margin: 0; }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+
+  /* 数据状态栏（新增） */
+  .statusbar {
+    max-width: 1120px; margin: 14px auto 8px; display: flex; align-items: center; gap: 18px;
+    flex-wrap: wrap; font-size: 12.5px; background: #FFFDF7; border: 1px solid #E6E4DD;
+    border-left: 4px solid #3B6D11; border-radius: 10px; padding: 10px 16px;
+  }
+  .statusbar .ok { color: #3B6D11; font-weight: 600; }
+  .statusbar .warn { color: #854F0B; }
+  .statusbar .item { display: inline-flex; align-items: center; gap: 6px; color: #5F5E5A; }
+  .statusbar .sep { width: 1px; height: 14px; background: #E6E4DD; }
+  .chip { font-size: 11px; padding: 1px 8px; border-radius: 999px; background: #EAF3DE; color: #27500A; }
+
+  .legend { display: flex; gap: 14px; margin: 14px 0 8px; flex-wrap: wrap; font-size: 13px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .dot.core { background: #3B6D11; } .dot.p1 { background: #185FA5; } .dot.p2 { background: #888780; }
+  .dot.new { background: #854F0B; }
+
+  /* 修订说明卡 */
+  .fixes {
+    max-width: 1120px; margin: 8px auto 20px; background: #fff; border: 1px solid #E6E4DD;
+    border-radius: 14px; padding: 18px 22px;
+  }
+  .fixes h2 { font-size: 16px; margin: 0 0 10px; font-weight: 600; }
+  .fix-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .fixes h4 { font-size: 13.5px; margin: 0 0 6px; color: #444441; }
+  .fixes ul { margin: 0 0 12px; padding-left: 20px; font-size: 13px; color: #5F5E5A; }
+  .fixes li { margin: 3px 0; }
+  .fixes .bad { color: #A32D2D; } .fixes .good { color: #3B6D11; }
+
+  /* 整体布局草图 */
+  .layout {
+    display: grid; gap: 12px; margin: 12px 0 36px;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-areas:
+      "ov ov ov ov"
+      "ga ga he he"
+      "po po ex ex"
+      "in in in in";
+  }
+  .cell {
+    background: #fff; border: 1px solid #E6E4DD; border-radius: 12px;
+    padding: 14px 16px; min-height: 92px; position: relative;
+  }
+  .cell h3 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+  .cell .tag { font-size: 12px; color: #5F5E5A; }
+  .cell .badge {
+    position: absolute; top: 12px; right: 12px; font-size: 11px; font-weight: 500;
+    padding: 2px 8px; border-radius: 999px;
+  }
+  .badge.core { background: #EAF3DE; color: #27500A; }
+  .badge.p1 { background: #E6F1FB; color: #0C447C; }
+  .badge.p2 { background: #F1EFE8; color: #5F5E5A; }
+  .badge.new { background: #FAE8C4; color: #7A4E00; }
+  .a-ov { grid-area: ov; } .a-ga { grid-area: ga; } .a-he { grid-area: he; }
+  .a-po { grid-area: po; } .a-ex { grid-area: ex; } .a-in { grid-area: in; }
+
+  /* 详情 */
+  .detail {
+    background: #fff; border: 1px solid #E6E4DD; border-radius: 14px;
+    padding: 20px 22px; margin-bottom: 20px;
+  }
+  .detail.new-board { border-left: 4px solid #B07E1E; }
+  .detail-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+  .detail-head h2 { font-size: 17px; font-weight: 600; margin: 0; }
+  .detail-head .pos { font-size: 12px; color: #888780; }
+  .detail .one { font-size: 14px; color: #2C2C2A; margin: 2px 0 8px; }
+  .detail .keys { font-size: 13px; color: #5F5E5A; margin: 0 0 12px; }
+  .detail .need { font-size: 13px; background: #FAF9F6; border-left: 3px solid #B4B2A9; padding: 8px 12px; border-radius: 6px; margin: 10px 0 0; color: #444441; }
+  .detail .added { font-size: 13px; background: #FEF6E7; border-left: 3px solid #B07E1E; padding: 8px 12px; border-radius: 6px; margin: 10px 0 0; color: #7A4E00; }
+  .detail svg { display: block; width: 100%; height: auto; background: #fff; border: 1px solid #F1EFE8; border-radius: 8px; margin-top: 6px; }
+
+  .ts { font-size: calc(11.5px / var(--k, 1)); font-weight: 400; fill: #5F5E5A; }
+  .th { font-size: calc(15px / var(--k, 1)); font-weight: 600; fill: #2C2C2A; }
+  .tk { font-size: calc(10px / var(--k, 1)); font-weight: 400; fill: #9A988F; }
+  .an { font-size: calc(12px / var(--k, 1)); font-weight: 700; }
+  .val { font-size: calc(10.5px / var(--k, 1)); font-weight: 500; }
+  .boxt { font-size: calc(11.5px / var(--k, 1)); font-weight: 400; fill: #444441; }
+
+  /* 知识面板 */
+  .panel { background: #fff; border: 1px solid #E6E4DD; border-radius: 14px; padding: 20px 22px; margin-bottom: 20px; }
+  .panel h2 { font-size: 17px; font-weight: 600; margin: 0 0 12px; }
+  table.k { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.k th, table.k td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #F1EFE8; vertical-align: top; }
+  table.k th { color: #444441; font-weight: 600; background: #FAF9F6; }
+  table.k td.mono { font-family: "SFMono-Regular", Consolas, monospace; color: #0C447C; font-size: 12.5px; }
+  .formula { background: #FAF9F6; border-radius: 8px; padding: 14px 16px; font-family: "SFMono-Regular", Consolas, monospace; font-size: 13px; color: #333; margin: 10px 0; line-height: 1.9; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .sign { font-weight: 600; }
+  .sign.pos { color: #3B6D11; } .sign.neg { color: #A32D2D; }
+  footer { max-width: 1120px; margin: 30px auto 0; font-size: 12px; color: #888780; border-top: 1px solid #E6E4DD; padding-top: 14px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>期权看板 · 第二代（补强 + 新增）</h1>
+  <p>在六视图草稿基础上，修正数据一致性、补齐缺失字段，并新增 GEX 公式/术语面板；Max Pain 与 Expected Move 区间已并入 01 结构区间条；二阶对冲流 Vanna/Charm 另见配套文档《Vanna-Charm 详解》。口径：<b>美股 Dealer GEX</b>（假设做市商为零售净买入期权的对手方，即净做空期权）。</p>
+</div>
+
+<!-- 数据状态栏：原稿缺失，第二代之一 -->
+<div class="statusbar">
+  <span class="item"><span class="chip">●</span> 数据状态：<span class="ok">FRESH</span>（示意）</span>
+  <span class="sep"></span>
+  <span class="item">快照时间 2026-08-27 09:42:15 ET</span>
+  <span class="sep"></span>
+  <span class="item">标的：<b>SPX</b> · 乘数 100</span>
+  <span class="sep"></span>
+  <span class="item">口径：Dealer GEX · 单位 <b>$/1% move</b></span>
+  <span class="sep"></span>
+  <span class="item warn">异常状态（stale/补数/断连）时禁止用墙位判断</span>
+</div>
+
+<div class="wrap">
+
+  <h2 style="font-size:15px;margin:0 0 4px;">整体布局草图（第二代）</h2>
+  <p style="font-size:13px;color:#5F5E5A;margin:0 0 10px;">在骨架上修数据、补字段；核心视图占大面积，P2 默认折叠。</p>
+  <div class="layout">
+    <div class="cell a-ov"><span class="badge core">核心</span><h3>01 Overview</h3><div class="tag">速览条 · +EM/IV Rank/状态</div></div>
+    <div class="cell a-ga"><span class="badge core">核心</span><h3>02 Gamma</h3><div class="tag">主图（宽）· 修标注</div></div>
+    <div class="cell a-he"><span class="badge core">核心</span><h3>04 Hedging</h3><div class="tag">压力动态 · +绝对流量</div></div>
+    <div class="cell a-po"><span class="badge p1">P1</span><h3>03 Positioning</h3><div class="tag">仓位 · +Vol/IV/P-C</div></div>
+    <div class="cell a-ex"><span class="badge p2">P2</span><h3>05 Expiration</h3><div class="tag">到期热力图 · +OPEX</div></div>
+    <div class="cell a-in"><span class="badge p1">P1</span><h3>06 Intraday</h3><div class="tag">日内变化 · +0DTE集中度</div></div>
+  </div>
+
+  <!-- 01 -->
+  <div class="detail">
+    <div class="detail-head"><h2>01 Overview</h2><span class="pos">10 秒速览</span><span class="badge core">核心</span></div>
+    <div class="one">一句话定位：打开即知今天的 regime、Spot 距各关键位多远、三维（GEX/OI/Volume）分布。</div>
+    <div class="keys">关键元素：状态卡（含 Expected Move / IV Rank / 中性三态）· 结构区间条 · GEX/OI/Volume 三 Profile</div>
+    <svg viewBox="0 0 900 556" width="100%" role="img" style="--k:1.3235">
+      <g transform="scale(1.3235)">
+      <title>看板01 Overview</title>
+      <desc>状态卡新增 Expected Move、IV Rank，Regime 支持中性；结构区间条统一 Spot 668</desc>
+      <text class="th" x="40" y="32">看板01 · Overview（10 秒速览）</text>
+      <text class="ts" x="40" y="52">状态卡 +EM/IVR/中性态 + 结构区间条 + 三 Profile</text>
+      <!-- row1 cards -->
+      <rect x="40" y="66" width="150" height="60" rx="8" fill="#F1EFE8" stroke="#B4B2A9" stroke-width="0.5"/>
+      <text class="ts" x="54" y="86">Gamma Regime</text>
+      <text style="font-size:15px;font-weight:500" x="54" y="108" fill="#854F0B">Neutral</text>
+      <text class="ts" x="54" y="122">|Spot-Flip|&lt;0.3%</text>
+      <rect x="200" y="66" width="150" height="60" rx="8" fill="#F1EFE8" stroke="#B4B2A9" stroke-width="0.5"/>
+      <text class="ts" x="214" y="86">Spot → Call Wall</text>
+      <text style="font-size:15px;font-weight:500" x="214" y="108" fill="#185FA5">668 → 676</text>
+      <rect x="360" y="66" width="150" height="60" rx="8" fill="#F1EFE8" stroke="#B4B2A9" stroke-width="0.5"/>
+      <text class="ts" x="374" y="86">Net Dealer GEX</text>
+      <text style="font-size:15px;font-weight:500" x="374" y="108">+1.2B · /1%</text>
+      <rect x="520" y="66" width="120" height="60" rx="8" fill="#F1EFE8" stroke="#B4B2A9" stroke-width="0.5"/>
+      <text class="ts" x="534" y="86">IV · Rank</text>
+      <text style="font-size:15px;font-weight:500" x="534" y="108">14.2% · 38</text>
+      <!-- row2: Expected Move (新增) -->
+      <rect x="40" y="134" width="300" height="40" rx="8" fill="#FEF6E7" stroke="#B07E1E" stroke-width="0.8"/>
+      <text class="ts" x="54" y="152" fill="#7A4E00">Expected Move（新增）</text>
+      <text style="font-size:14px;font-weight:600" x="54" y="168" fill="#7A4E00">668 ± 8.4 → [659.6, 676.4]</text>
+      <rect x="350" y="134" width="290" height="40" rx="8" fill="#FEF6E7" stroke="#B07E1E" stroke-width="0.8"/>
+      <text class="ts" x="364" y="152" fill="#7A4E00">P/C Volume 比（新增）</text>
+      <text style="font-size:14px;font-weight:600" x="364" y="168" fill="#7A4E00">0.72 · 偏 Call</text>
+      <!-- structure bar -->
+      <text class="th" x="40" y="200">结构区间条（价格轴）</text>
+      <rect x="265" y="212" width="211" height="30" rx="6" fill="#EAF3DE" fill-opacity="0.6" stroke="#639922" stroke-width="0.8"/>
+      <text class="ts" x="482" y="216" fill="#27500A">EM [659.6, 676.4]</text>
+      <rect x="60" y="222" width="560" height="12" rx="6" fill="#D3D1C7"/>
+      <circle cx="140" cy="228" r="5" fill="#E24B4A"/><text class="an" x="140" y="254" text-anchor="middle" fill="#A32D2D">Put Wall 655</text>
+      <circle cx="300" cy="228" r="5" fill="#854F0B"/><text class="an" x="300" y="254" text-anchor="middle" fill="#854F0B">Gamma Flip 664</text>
+      <circle cx="348" cy="228" r="5" fill="#185FA5"/><text class="an" x="348" y="272" text-anchor="middle" fill="#185FA5">Spot 668</text>
+      <circle cx="392" cy="228" r="5" fill="#444441"/><text class="an" x="392" y="290" text-anchor="middle" fill="#444441">Max Pain 670</text>
+      <circle cx="476" cy="228" r="5" fill="#3B6D11"/><text class="an" x="476" y="254" text-anchor="middle" fill="#3B6D11">Call Wall 676</text>
+      <!-- profiles -->
+      <text class="th" x="40" y="312">GEX</text>
+      <text class="tk" x="72" y="312">绿正 · 红负</text>
+      <text class="th" x="250" y="312">OI</text>
+      <text class="th" x="460" y="312">Volume</text>
+      <rect x="44" y="340" width="14" height="42" fill="#97C459"/><rect x="64" y="332" width="14" height="50" fill="#97C459"/>
+      <rect x="84" y="368" width="14" height="14" fill="#F09595"/><rect x="104" y="334" width="14" height="48" fill="#97C459"/>
+      <rect x="124" y="344" width="14" height="38" fill="#97C459"/><rect x="144" y="352" width="14" height="30" fill="#F09595"/>
+      <rect x="164" y="360" width="14" height="22" fill="#F09595"/><rect x="184" y="366" width="14" height="16" fill="#F09595"/>
+      <rect x="254" y="332" width="14" height="50" fill="#85B7EB"/><rect x="274" y="324" width="14" height="58" fill="#85B7EB"/>
+      <rect x="294" y="342" width="14" height="40" fill="#85B7EB"/><rect x="314" y="316" width="14" height="66" fill="#378ADD"/>
+      <rect x="334" y="330" width="14" height="52" fill="#85B7EB"/><rect x="354" y="342" width="14" height="40" fill="#85B7EB"/>
+      <rect x="374" y="352" width="14" height="30" fill="#85B7EB"/><rect x="394" y="360" width="14" height="22" fill="#85B7EB"/>
+      <rect x="464" y="342" width="14" height="40" fill="#B5D4F4"/><rect x="484" y="330" width="14" height="52" fill="#378ADD"/>
+      <rect x="504" y="316" width="14" height="66" fill="#185FA5"/><rect x="524" y="332" width="14" height="50" fill="#378ADD"/>
+      <rect x="544" y="346" width="14" height="36" fill="#B5D4F4"/><rect x="564" y="352" width="14" height="30" fill="#B5D4F4"/>
+      <rect x="584" y="360" width="14" height="22" fill="#B5D4F4"/><rect x="604" y="346" width="14" height="36" fill="#B5D4F4"/>
+      <line x1="40" y1="382" x2="220" y2="382" stroke="#5F5E5A" stroke-width="0.5"/>
+      <line x1="250" y1="382" x2="430" y2="382" stroke="#5F5E5A" stroke-width="0.5"/>
+      <line x1="460" y1="382" x2="640" y2="382" stroke="#5F5E5A" stroke-width="0.5"/>
+      </g>
+    </svg>
+  </div>
+
+  <!-- 02 -->
+  <div class="detail">
+    <div class="detail-head"><h2>02 Gamma</h2><span class="pos">核心看板</span><span class="badge core">核心</span></div>
+    <div class="one">一句话定位：当前 Gamma 结构长什么样 —— 双墙、Flip、Max Gamma 分别在哪（静态结构快照）。</div>
+    <div class="keys">关键元素：Gamma Profile · Call Wall / Put Wall / Gamma Flip / Max Γ 分别标注 · 热力图(P2)</div>
+    <svg viewBox="0 0 900 492" width="100%" role="img" style="--k:1.04651">
+      <g transform="scale(1.04651)">
+      <title>看板02 Gamma</title>
+      <desc>修正标注：Call Wall 676 与 Max Γ 673 分开；Put Wall 655 补全称；Flip 统一命名</desc>
+      <text class="th" x="40" y="32">看板02 · Gamma（核心看板 · 结构视角）</text>
+      <text class="ts" x="40" y="52">Call Wall≠MaxΓ 分离标注；Put Wall 补全称；Gamma Flip 统一命名</text>
+      <line x1="360" y1="70" x2="360" y2="232" stroke="#5F5E5A" stroke-width="0.5"/>
+      <text class="ts" x="360" y="248" text-anchor="middle">0 Γ</text>
+      <rect x="360" y="76" width="48" height="16" fill="#C0DD97"/>
+      <rect x="360" y="99" width="72" height="16" fill="#C0DD97"/>
+      <rect x="360" y="122" width="150" height="16" fill="#97C459"/>
+      <rect x="360" y="145" width="216" height="16" fill="#97C459"/>
+      <rect x="360" y="168" width="84" height="16" fill="#C0DD97"/>
+      <rect x="360" y="191" width="24" height="16" fill="#C0DD97"/>
+      <rect x="348" y="214" width="12" height="16" fill="#F09595"/>
+      <rect x="276" y="260" width="84" height="16" fill="#F09595"/>
+      <rect x="168" y="283" width="192" height="16" fill="#E24B4A"/>
+      <rect x="300" y="306" width="60" height="16" fill="#F09595"/>
+      <text class="tk" x="30" y="84" text-anchor="end">682</text>
+      <text class="tk" x="30" y="107" text-anchor="end">679</text>
+      <text class="tk" x="30" y="130" text-anchor="end">676</text>
+      <text class="tk" x="30" y="153" text-anchor="end">673</text>
+      <text class="tk" x="30" y="176" text-anchor="end">670</text>
+      <text class="tk" x="30" y="199" text-anchor="end">667</text>
+      <text class="tk" x="30" y="222" text-anchor="end">664</text>
+      <text class="tk" x="30" y="245" text-anchor="end">661</text>
+      <text class="tk" x="30" y="268" text-anchor="end">658</text>
+      <text class="tk" x="30" y="291" text-anchor="end">655</text>
+      <text class="tk" x="30" y="314" text-anchor="end">652</text>
+      <!-- 分离标注 -->
+      <text class="an" x="852" y="130" text-anchor="end" fill="#3B6D11">Call Wall 676（最大 Call GEX）</text>
+      <text class="an" x="852" y="153" text-anchor="end" fill="#27500A">Max Γ 673（净 GEX 峰值）</text>
+      <text class="an" x="852" y="291" text-anchor="end" fill="#A32D2D">Put Wall 655（最大 Put GEX）</text>
+      <line x1="120" y1="222" x2="800" y2="222" stroke="#854F0B" stroke-width="1" stroke-dasharray="4 3"/>
+      <text class="an" x="852" y="222" text-anchor="end" fill="#854F0B">Gamma Flip 664</text>
+      <line x1="120" y1="199" x2="800" y2="199" stroke="#185FA5" stroke-width="1" stroke-dasharray="3 3"/>
+      <text class="an" x="126" y="196" fill="#185FA5">Spot 668</text>
+      <!-- heatmap -->
+      <text class="th" x="40" y="350">Strike × Time 热力图（P2）</text>
+      <rect x="120" y="362" width="60" height="14" fill="#F09595"/><rect x="180" y="362" width="60" height="14" fill="#FCEBEB"/>
+      <rect x="240" y="362" width="60" height="14" fill="#EAF3DE"/><rect x="300" y="362" width="60" height="14" fill="#C0DD97"/>
+      <rect x="360" y="362" width="60" height="14" fill="#97C459"/><rect x="420" y="362" width="60" height="14" fill="#C0DD97"/>
+      <rect x="480" y="362" width="60" height="14" fill="#EAF3DE"/>
+      <rect x="120" y="378" width="60" height="14" fill="#FCEBEB"/><rect x="180" y="378" width="60" height="14" fill="#EAF3DE"/>
+      <rect x="240" y="378" width="60" height="14" fill="#C0DD97"/><rect x="300" y="378" width="60" height="14" fill="#97C459"/>
+      <rect x="360" y="378" width="60" height="14" fill="#97C459"/><rect x="420" y="378" width="60" height="14" fill="#C0DD97"/>
+      <rect x="480" y="378" width="60" height="14" fill="#EAF3DE"/>
+      <rect x="120" y="394" width="60" height="14" fill="#EAF3DE"/><rect x="180" y="394" width="60" height="14" fill="#C0DD97"/>
+      <rect x="240" y="394" width="60" height="14" fill="#97C459"/><rect x="300" y="394" width="60" height="14" fill="#97C459"/>
+      <rect x="360" y="394" width="60" height="14" fill="#C0DD97"/><rect x="420" y="394" width="60" height="14" fill="#EAF3DE"/>
+      <rect x="480" y="394" width="60" height="14" fill="#FCEBEB"/>
+      <rect x="120" y="410" width="60" height="14" fill="#C0DD97"/><rect x="180" y="410" width="60" height="14" fill="#EAF3DE"/>
+      <rect x="240" y="410" width="60" height="14" fill="#FCEBEB"/><rect x="300" y="410" width="60" height="14" fill="#F09595"/>
+      <rect x="360" y="410" width="60" height="14" fill="#FCEBEB"/><rect x="420" y="410" width="60" height="14" fill="#EAF3DE"/>
+      <rect x="480" y="410" width="60" height="14" fill="#C0DD97"/>
+      <text class="tk" x="150" y="442" text-anchor="middle">09:30</text>
+      <text class="tk" x="270" y="442" text-anchor="middle">10:30</text>
+      <text class="tk" x="390" y="442" text-anchor="middle">11:30</text>
+      <text class="tk" x="510" y="442" text-anchor="middle">13:30</text>
+      <text class="tk" x="600" y="442" text-anchor="middle">15:00</text>
+      </g>
+    </svg>
+  </div>
+
+  <!-- 03 -->
+  <div class="detail">
+    <div class="detail-head"><h2>03 Positioning</h2><span class="pos">仓位分布</span><span class="badge p1">P1</span></div>
+    <div class="one">一句话定位：钱堆在哪个行权价 —— OI 蝴蝶看静态分布，ΔOI 表看今天往哪搬，新增 Volume/IV/P-C 维度。</div>
+    <div class="keys">关键元素：OI 蝴蝶图 · ΔOI 变化表（+ Volume · + per-strike IV · + P/C OI 比）</div>
+    <svg viewBox="0 0 900 516" width="100%" role="img" style="--k:1.32353">
+      <g transform="scale(1.32353)">
+      <title>看板03 Positioning</title>
+      <desc>OI 蝴蝶图 + 扩展表（Strike/OI/ΔOI/Δ%/Volume/IV）+ P/C OI 比</desc>
+      <text class="th" x="40" y="32">看板03 · Positioning（仓位分布）</text>
+      <text class="ts" x="40" y="52">左=OI 蝴蝶图（轴统一 Spot 668）　右=扩展 ΔOI 表（+Vol/+IV）</text>
+      <line x1="60" y1="195" x2="360" y2="195" stroke="#5F5E5A" stroke-width="0.5"/>
+      <line x1="230" y1="95" x2="230" y2="305" stroke="#185FA5" stroke-width="1" stroke-dasharray="4 3"/>
+      <text class="an" x="230" y="318" text-anchor="middle" fill="#185FA5">Spot 668</text>
+      <rect x="62" y="195" width="16" height="60" fill="#E24B4A"/><rect x="102" y="195" width="16" height="80" fill="#E24B4A"/>
+      <rect x="142" y="195" width="16" height="55" fill="#E24B4A"/><rect x="182" y="195" width="16" height="95" fill="#E24B4A"/>
+      <rect x="262" y="115" width="16" height="80" fill="#3B6D11"/><rect x="302" y="90" width="16" height="105" fill="#3B6D11"/>
+      <rect x="342" y="145" width="16" height="50" fill="#3B6D11"/>
+      <text class="tk" x="70" y="268" text-anchor="middle">650</text><text class="tk" x="110" y="288" text-anchor="middle">655</text>
+      <text class="tk" x="150" y="262" text-anchor="middle">660</text><text class="tk" x="190" y="302" text-anchor="middle">665</text>
+      <text class="tk" x="270" y="107" text-anchor="middle">675</text><text class="tk" x="310" y="82" text-anchor="middle">680</text>
+      <text class="tk" x="350" y="137" text-anchor="middle">685</text>
+      <text class="ts" x="62" y="338" fill="#A32D2D">Put 侧</text>
+      <text class="ts" x="330" y="338" fill="#3B6D11">Call 侧</text>
+      <!-- 扩展表 -->
+      <text class="th" x="386" y="72">ΔOI 扩展表</text>
+      <text class="ts" x="392" y="94">Strike</text><text class="ts" x="446" y="94">OI</text>
+      <text class="ts" x="500" y="94">ΔOI</text><text class="ts" x="548" y="94">Vol</text>
+      <text class="ts" x="596" y="94">IV</text>
+      <line x1="388" y1="102" x2="656" y2="102" stroke="#B4B2A9" stroke-width="0.5"/>
+      <g class="val" fill="#444441">
+      <text x="392" y="122">670</text><text x="446" y="122">42.0k</text><text x="500" y="122" fill="#3B6D11">+3.2k</text><text x="548" y="122">18.4k</text><text x="596" y="122">13.9%</text>
+      <text x="392" y="146">675</text><text x="446" y="146">38.0k</text><text x="500" y="146" fill="#3B6D11">+5.1k</text><text x="548" y="146">22.1k</text><text x="596" y="146">14.2%</text>
+      <text x="392" y="170">665</text><text x="446" y="170">31.0k</text><text x="500" y="170" fill="#A32D2D">-1.8k</text><text x="548" y="170">12.7k</text><text x="596" y="170">15.1%</text>
+      <text x="392" y="194">680</text><text x="446" y="194">28.0k</text><text x="500" y="194" fill="#3B6D11">+2.6k</text><text x="548" y="194">9.3k</text><text x="596" y="194">14.6%</text>
+      <text x="392" y="218">660</text><text x="446" y="218">25.0k</text><text x="500" y="218" fill="#A32D2D">-0.9k</text><text x="548" y="218">7.1k</text><text x="596" y="218">15.8%</text>
+      </g>
+      <line x1="388" y1="110" x2="656" y2="110" stroke="#E6E4DD" stroke-width="0.5"/>
+      <line x1="388" y1="134" x2="656" y2="134" stroke="#E6E4DD" stroke-width="0.5"/>
+      <line x1="388" y1="158" x2="656" y2="158" stroke="#E6E4DD" stroke-width="0.5"/>
+      <line x1="388" y1="182" x2="656" y2="182" stroke="#E6E4DD" stroke-width="0.5"/>
+      <line x1="388" y1="206" x2="656" y2="206" stroke="#E6E4DD" stroke-width="0.5"/>
+      <!-- P/C 比 -->
+      <rect x="388" y="238" width="268" height="42" rx="6" fill="#FAF9F6" stroke="#E6E4DD" stroke-width="0.5"/>
+      <text class="ts" x="400" y="256" fill="#444441">P/C OI 比（新增）</text>
+      <text style="font-size:14px;font-weight:600" x="400" y="274" fill="#0C447C">0.68 · 下方 Put 相对厚重</text>
+      </g>
+    </svg>
+  </div>
+
+  <!-- 04 -->
+  <div class="detail">
+    <div class="detail-head"><h2>04 Hedging</h2><span class="pos">对冲压力</span><span class="badge core">核心</span></div>
+    <div class="one">一句话定位：对冲压力怎么演化、会把价格推去哪 —— 同源 Profile + regime + 趋势 + Δ 窗口 + 绝对对冲流量。</div>
+    <div class="keys">关键元素：压力 Map · 净 GEX 趋势 · Δ30m/Δ1H · 预估对冲流量 $/1%（新增）</div>
+    <svg viewBox="0 0 900 515" width="100%" role="img" style="--k:1.18421">
+      <g transform="scale(1.18421)">
+      <title>看板04 Hedging</title>
+      <desc>横向净GEX条形+Spot/Gamma Flip线；底部净GEX趋势、Δ窗口，新增预估对冲流量 $/1%</desc>
+      <text class="th" x="40" y="32">看板04 · Hedging（对冲压力 · 动态视角）</text>
+      <text class="ts" x="40" y="52">同源 Profile + Spot vs Gamma Flip + 趋势 + Δ窗口 + 流量$</text>
+      <line x1="360" y1="70" x2="360" y2="300" stroke="#5F5E5A" stroke-width="0.5"/>
+      <text class="tk" x="360" y="316" text-anchor="middle">0 GEX</text>
+      <text class="tk" x="600" y="316" text-anchor="end">+2B</text>
+      <text class="tk" x="120" y="316" text-anchor="start">-2B</text>
+      <rect x="360" y="76" width="48" height="16" fill="#C0DD97"/><rect x="360" y="99" width="72" height="16" fill="#C0DD97"/>
+      <rect x="360" y="122" width="150" height="16" fill="#97C459"/><rect x="360" y="145" width="216" height="16" fill="#97C459"/>
+      <rect x="360" y="168" width="84" height="16" fill="#C0DD97"/><rect x="360" y="191" width="24" height="16" fill="#C0DD97"/>
+      <rect x="348" y="214" width="12" height="16" fill="#F09595"/><rect x="300" y="237" width="60" height="16" fill="#F09595"/>
+      <rect x="276" y="260" width="84" height="16" fill="#F09595"/><rect x="168" y="283" width="192" height="16" fill="#E24B4A"/>
+      <text class="tk" x="30" y="84" text-anchor="end">682</text><text class="tk" x="30" y="107" text-anchor="end">679</text>
+      <text class="tk" x="30" y="130" text-anchor="end">676</text><text class="tk" x="30" y="153" text-anchor="end">673</text>
+      <text class="tk" x="30" y="176" text-anchor="end">670</text><text class="tk" x="30" y="199" text-anchor="end">667</text>
+      <text class="tk" x="30" y="222" text-anchor="end">664</text><text class="tk" x="30" y="245" text-anchor="end">661</text>
+      <text class="tk" x="30" y="268" text-anchor="end">658</text><text class="tk" x="30" y="291" text-anchor="end">655</text>
+      <line x1="120" y1="193" x2="700" y2="193" stroke="#185FA5" stroke-width="1" stroke-dasharray="4 3"/>
+      <text class="an" x="752" y="193" text-anchor="end" fill="#185FA5">Spot 668</text>
+      <text class="an" x="752" y="118" text-anchor="end" fill="#3B6D11">Call Wall 676</text>
+      <text class="an" x="366" y="278" text-anchor="start" fill="#A32D2D">Put Wall 655</text>
+      <line x1="120" y1="222" x2="700" y2="222" stroke="#854F0B" stroke-width="1" stroke-dasharray="4 3"/>
+      <text class="an" x="752" y="222" text-anchor="end" fill="#854F0B">Gamma Flip 664</text>
+      <!-- trend -->
+      <text class="th" x="40" y="344">压力趋势 · 净 GEX 时间序列 + Δ 窗口</text>
+      <polyline points="140,378 200,374 260,366 320,370 380,358 440,362 500,352 560,356 620,346" fill="none" stroke="#378ADD" stroke-width="1.5"/>
+      <line x1="140" y1="386" x2="620" y2="386" stroke="#5F5E5A" stroke-width="0.5"/>
+      <text class="tk" x="140" y="400" text-anchor="start">t-1H</text>
+      <text class="tk" x="620" y="400" text-anchor="end">now</text>
+      <line x1="260" y1="386" x2="260" y2="340" stroke="#888780" stroke-width="0.5" stroke-dasharray="3 3"/>
+      <line x1="500" y1="386" x2="500" y2="340" stroke="#888780" stroke-width="0.5" stroke-dasharray="3 3"/>
+      <text class="ts" x="560" y="336" text-anchor="middle">Δ30m</text>
+      <text class="ts" x="380" y="336" text-anchor="middle">Δ1H</text>
+      <rect x="578" y="232" width="174" height="54" rx="6" fill="#FEF6E7" stroke="#B07E1E" stroke-width="0.8"/>
+      <text class="ts" x="588" y="252" fill="#7A4E00">预估对冲流量(新增)</text>
+      <text style="font-size:13px;font-weight:600" x="588" y="274" fill="#7A4E00">买 ~ +3.4 亿$ / 1%↑</text>
+      </g>
+    </svg>
+  </div>
+
+  <!-- 05 -->
+  <div class="detail">
+    <div class="detail-head"><h2>05 Expiration</h2><span class="pos">到期日结构</span><span class="badge p2">P2</span></div>
+    <div class="one">一句话定位：不同到期日的 Gamma 怎么分层 —— 哪档跨到期共振成锚、哪个到期在主导全局。</div>
+    <div class="keys">关键元素：Expiration Matrix · 到期×Strike 热力图 · OPEX 日期 · 主导到期高亮（新增）</div>
+    <svg viewBox="0 0 900 491" width="100%" role="img" style="--k:1.18421">
+      <g transform="scale(1.18421)">
+      <title>看板05 Expiration</title>
+      <desc>Y=行权价 X=到期日；格色=净GEX；横亮带=主导到期；补OPEX与Put Wall共振标注</desc>
+      <text class="th" x="40" y="32">看板05 · Expiration（到期日结构）</text>
+      <text class="ts" x="40" y="52">Y=行权价　X=到期日（近→远）　格色=净 GEX：绿正/红负</text>
+      <rect x="120" y="70" width="64" height="36" fill="#F09595"/><rect x="188" y="70" width="64" height="36" fill="#F09595"/>
+      <rect x="257" y="70" width="64" height="36" fill="#FCEBEB"/><rect x="325" y="70" width="64" height="36" fill="#F1EFE8"/>
+      <rect x="394" y="70" width="64" height="36" fill="#EAF3DE"/><rect x="462" y="70" width="64" height="36" fill="#EAF3DE"/>
+      <rect x="531" y="70" width="64" height="36" fill="#EAF3DE"/>
+      <rect x="120" y="110" width="64" height="36" fill="#E24B4A"/><rect x="188" y="110" width="64" height="36" fill="#F09595"/>
+      <rect x="257" y="110" width="64" height="36" fill="#FCEBEB"/><rect x="325" y="110" width="64" height="36" fill="#F1EFE8"/>
+      <rect x="394" y="110" width="64" height="36" fill="#C0DD97"/><rect x="462" y="110" width="64" height="36" fill="#EAF3DE"/>
+      <rect x="531" y="110" width="64" height="36" fill="#EAF3DE"/>
+      <rect x="120" y="150" width="64" height="36" fill="#F09595"/><rect x="188" y="150" width="64" height="36" fill="#FCEBEB"/>
+      <rect x="257" y="150" width="64" height="36" fill="#F1EFE8"/><rect x="325" y="150" width="64" height="36" fill="#EAF3DE"/>
+      <rect x="394" y="150" width="64" height="36" fill="#C0DD97"/><rect x="462" y="150" width="64" height="36" fill="#C0DD97"/>
+      <rect x="531" y="150" width="64" height="36" fill="#EAF3DE"/>
+      <rect x="118" y="188" width="478" height="40" fill="none" stroke="#639922" stroke-width="1.5"/>
+      <rect x="120" y="190" width="64" height="36" fill="#EAF3DE"/><rect x="188" y="190" width="64" height="36" fill="#C0DD97"/>
+      <rect x="257" y="190" width="64" height="36" fill="#97C459"/><rect x="325" y="190" width="64" height="36" fill="#97C459"/>
+      <rect x="394" y="190" width="64" height="36" fill="#97C459"/><rect x="462" y="190" width="64" height="36" fill="#97C459"/>
+      <rect x="531" y="190" width="64" height="36" fill="#C0DD97"/>
+      <rect x="120" y="230" width="64" height="36" fill="#C0DD97"/><rect x="188" y="230" width="64" height="36" fill="#C0DD97"/>
+      <rect x="257" y="230" width="64" height="36" fill="#EAF3DE"/><rect x="325" y="230" width="64" height="36" fill="#EAF3DE"/>
+      <rect x="394" y="230" width="64" height="36" fill="#EAF3DE"/><rect x="462" y="230" width="64" height="36" fill="#EAF3DE"/>
+      <rect x="531" y="230" width="64" height="36" fill="#EAF3DE"/>
+      <rect x="118" y="268" width="478" height="40" fill="none" stroke="#C0392B" stroke-width="1.5" stroke-dasharray="5 3"/>
+      <rect x="120" y="270" width="64" height="36" fill="#97C459"/><rect x="188" y="270" width="64" height="36" fill="#C0DD97"/>
+      <rect x="257" y="270" width="64" height="36" fill="#C0DD97"/><rect x="325" y="270" width="64" height="36" fill="#EAF3DE"/>
+      <rect x="394" y="270" width="64" height="36" fill="#FCEBEB"/><rect x="462" y="270" width="64" height="36" fill="#F09595"/>
+      <rect x="531" y="270" width="64" height="36" fill="#E24B4A"/>
+      <text class="tk" x="112" y="88" text-anchor="end">692</text><text class="tk" x="112" y="128" text-anchor="end">688</text>
+      <text class="tk" x="112" y="168" text-anchor="end">684</text><text class="tk" x="112" y="208" text-anchor="end">680</text>
+      <text class="tk" x="112" y="248" text-anchor="end">676</text><text class="tk" x="112" y="288" text-anchor="end">672</text>
+      <text class="tk" x="152" y="325" text-anchor="middle">0D</text><text class="tk" x="220" y="325" text-anchor="middle">1D</text>
+      <text class="tk" x="289" y="325" text-anchor="middle">W1</text><text class="tk" x="357" y="325" text-anchor="middle">W2</text>
+      <text class="tk" x="426" y="325" text-anchor="middle">M1</text><text class="tk" x="494" y="325" text-anchor="middle">M2</text>
+      <text class="tk" x="563" y="325" text-anchor="middle">M3</text>
+      <text class="an" x="600" y="180" fill="#3B6D11">Call Wall 680</text><text class="ts" x="600" y="196">多到期共振</text>
+      <text class="an" x="600" y="278" fill="#C0392B">Put Wall 672</text><text class="ts" x="600" y="294">远期转负</text>
+      <rect x="120" y="335" width="475" height="16" rx="4" fill="#FEF6E7" stroke="#B07E1E" stroke-width="0.6"/>
+      <text class="ts" x="126" y="347" fill="#7A4E00">OPEX（新增）：最近月到期 2026-09-19（M1）· 到期前 3 日进入 Pinning 高风险窗口</text>
+      <text class="ts" x="126" y="372">绿框=主导到期共振　红框=Put Wall 共振　颜色由绿转红=Gamma Flip</text>
+      </g>
+    </svg>
+  </div>
+
+  <!-- 06 -->
+  <div class="detail">
+    <div class="detail-head"><h2>06 Intraday</h2><span class="pos">日内变化</span><span class="badge p1">P1</span></div>
+    <div class="one">一句话定位：盘中墙和 Gamma 怎么漂移、哪个 strike 今天增仓/放量最猛、0DTE 集中度多高。</div>
+    <div class="keys">关键元素：Wall / Gamma Migration · Top ΔOI/Volume · 0DTE 集中度（新增）</div>
+    <svg viewBox="0 0 900 531" width="100%" role="img" style="--k:1.25">
+      <g transform="scale(1.25)">
+      <title>看板06 Intraday</title>
+      <desc>上=Wall/Gamma Migration；下=Top ΔOI/Volume 排行 + 0DTE 集中度小卡</desc>
+      <text class="th" x="40" y="32">看板06 · Intraday（日内变化）</text>
+      <text class="ts" x="40" y="52">上=Wall/Gamma Migration　下=Top ΔOI/Volume 排行 + 0DTE 集中度</text>
+      <text class="tk" x="44" y="88" text-anchor="end">680</text><text class="tk" x="44" y="158" text-anchor="end">670</text><text class="tk" x="44" y="228" text-anchor="end">660</text>
+      <polyline points="60,95 200,100 340,108 480,118 620,125" fill="none" stroke="#3B6D11" stroke-width="1.5"/>
+      <polyline points="60,210 200,205 340,202 480,198 620,195" fill="none" stroke="#A32D2D" stroke-width="1.5"/>
+      <polyline points="60,150 200,152 340,155 480,158 620,160" fill="none" stroke="#854F0B" stroke-width="1.2" stroke-dasharray="4 3"/>
+      <polyline points="60,170 200,140 340,185 480,130 620,150" fill="none" stroke="#185FA5" stroke-width="1.5"/>
+      <text class="an" x="626" y="122" fill="#3B6D11">Call Wall</text>
+      <text class="an" x="626" y="193" fill="#A32D2D">Put Wall</text>
+      <text class="an" x="626" y="158" fill="#854F0B">Flip</text>
+      <text class="an" x="626" y="138" fill="#185FA5">Spot</text>
+      <text class="tk" x="60" y="248" text-anchor="start">09:30</text><text class="tk" x="200" y="248" text-anchor="middle">10:30</text>
+      <text class="tk" x="340" y="248" text-anchor="middle">11:30</text><text class="tk" x="480" y="248" text-anchor="middle">13:30</text>
+      <text class="tk" x="620" y="248" text-anchor="end">15:00</text>
+      <!-- 大单气泡图层（点击图例可显隐） -->
+      <g id="bubbles">
+        <circle cx="100" cy="110" r="16" fill="#3B6D11" fill-opacity="0.42" stroke="#3B6D11" stroke-width="1"/>
+        <circle cx="170" cy="142" r="9"  fill="#A32D2D" fill-opacity="0.42" stroke="#A32D2D" stroke-width="1"/>
+        <circle cx="250" cy="120" r="13" fill="#3B6D11" fill-opacity="0.42" stroke="#3B6D11" stroke-width="1"/>
+        <circle cx="330" cy="166" r="20" fill="#A32D2D" fill-opacity="0.42" stroke="#A32D2D" stroke-width="1"/>
+        <circle cx="410" cy="150" r="11" fill="#3B6D11" fill-opacity="0.42" stroke="#3B6D11" stroke-width="1"/>
+        <circle cx="490" cy="128" r="15" fill="#3B6D11" fill-opacity="0.42" stroke="#3B6D11" stroke-width="1"/>
+        <circle cx="560" cy="182" r="8"  fill="#A32D2D" fill-opacity="0.42" stroke="#A32D2D" stroke-width="1"/>
+        <circle cx="600" cy="150" r="12" fill="#3B6D11" fill-opacity="0.42" stroke="#3B6D11" stroke-width="1"/>
+      </g>
+      <!-- 可点击图例：大单气泡开关 -->
+      <g id="legendBubble" style="cursor:pointer" onclick="toggleBubbles()" role="button" aria-pressed="true">
+        <rect x="40" y="58" width="118" height="18" rx="9" fill="#F1EFE8" stroke="#D3D1C7" stroke-width="0.6"/>
+        <circle cx="53" cy="67" r="6" fill="#888780" fill-opacity="0.5" stroke="#5F5E5A" stroke-width="0.8"/>
+        <text class="ts" x="64" y="71" fill="#2C2C2A">大单气泡</text>
+      </g>
+      <circle cx="176" cy="67" r="5" fill="#3B6D11" fill-opacity="0.6"/><text class="tk" x="185" y="71">买</text>
+      <circle cx="208" cy="67" r="5" fill="#A32D2D" fill-opacity="0.6"/><text class="tk" x="217" y="71">卖</text>
+      <text class="tk" x="238" y="71">大小 = 成交额</text>
+      <text class="th" x="40" y="280">Top ΔOI / Volume（按增仓排序）</text>
+      <rect x="120" y="292" width="420" height="16" fill="#97C459"/><rect x="120" y="318" width="264" height="16" fill="#97C459"/>
+      <rect x="120" y="344" width="214" height="16" fill="#97C459"/><rect x="120" y="370" width="148" height="16" fill="#F09595"/>
+      <rect x="120" y="396" width="74" height="16" fill="#F09595"/>
+      <text class="tk" x="112" y="304" text-anchor="end">675</text><text class="tk" x="112" y="330" text-anchor="end">670</text>
+      <text class="tk" x="112" y="356" text-anchor="end">680</text><text class="tk" x="112" y="382" text-anchor="end">665</text>
+      <text class="tk" x="112" y="408" text-anchor="end">660</text>
+      <text class="val" x="548" y="304" fill="#3B6D11">+5100</text><text class="val" x="392" y="330" fill="#3B6D11">+3200</text>
+      <text class="val" x="342" y="356" fill="#3B6D11">+2600</text><text class="val" x="276" y="382" fill="#A32D2D">-1800</text>
+      <text class="val" x="202" y="408" fill="#A32D2D">-900</text>
+      <rect x="440" y="344" width="216" height="68" rx="8" fill="#FEF6E7" stroke="#B07E1E" stroke-width="0.8"/>
+      <text class="ts" x="452" y="364" fill="#7A4E00">0DTE 集中度（新增）</text>
+      <text style="font-size:14px;font-weight:600" x="452" y="384" fill="#7A4E00">62% · 高</text>
+      <text class="ts" x="452" y="402" fill="#7A4E00">尾盘 Gamma 骤变 / 踩踏风险↑</text>
+      </g>
+    </svg>
+  </div>
+
+
+  <!-- 知识点术语表 -->
+  <div class="panel">
+    <h2>GEX 交易知识点补充（术语速查）</h2>
+    <table class="k">
+      <tr><th>概念</th><th>一句话解释</th><th>看板落点</th></tr>
+      <tr><td class="mono">Gamma Regime</td><td>正 / 负 / 中性三态：正压波动、负放大波动、中性易被消息突破</td><td>01 状态卡</td></tr>
+      <tr><td class="mono">Net Dealer GEX</td><td>做市商净 Gamma 敞口，单位 $/1% move，衡量对冲盘总力量</td><td>01 / 02 / 04</td></tr>
+      <tr><td class="mono">Call Wall / Put Wall</td><td>上方最大 Call GEX / 下方最大 Put GEX 的行权价，充当阻力 / 支撑</td><td>01 / 02 / 04</td></tr>
+      <tr><td class="mono">Gamma Flip</td><td>聚合 NetGEX 由正转负的价位（= Zero Γ），牛熊结构分界</td><td>01 / 02 / 04</td></tr>
+      <tr><td class="mono">Max Γ</td><td>单 strike 净 GEX 峰值，最强价格引力位（≠ Call Wall）</td><td>02</td></tr>
+      <tr><td class="mono">Max Pain</td><td>使期权买方总损失最大的行权价，到期价格引力目标</td><td>01 结构区间条</td></tr>
+      <tr><td class="mono">Expected Move（EM）</td><td>由 ATM 期权反推的当日预期波动区间，用于校验结构间距宽窄</td><td>01 结构区间条</td></tr>
+      <tr><td class="mono">IV / IV Rank</td><td>隐含波动率及其历史分位，衡量当前波动贵不贵</td><td>01 / 03</td></tr>
+      <tr><td class="mono">P/C 比</td><td>Put 与 Call 的成交 / 持仓比，反映多空情绪偏哪侧</td><td>01 / 03</td></tr>
+      <tr><td class="mono">OI（持仓量）</td><td>未平仓合约数，存量；Call/Put 蝴蝶图看分布</td><td>03</td></tr>
+      <tr><td class="mono">ΔOI</td><td>今日持仓变化量，正=加仓、负=平仓，指向新资金去向</td><td>03 / 06</td></tr>
+      <tr><td class="mono">Volume</td><td>当日成交量，流量；与 OI 背离说明换手而非新开仓</td><td>01 / 03 / 06</td></tr>
+      <tr><td class="mono">预估对冲流量</td><td>做市商在 Spot ±1% 时须净买 / 卖标的的名义金额</td><td>04</td></tr>
+      <tr><td class="mono">Δ30m / Δ1H</td><td>对冲压力的变化速率，加速累积=风险积聚</td><td>04</td></tr>
+      <tr><td class="mono">Wall / Gamma Migration</td><td>盘中墙位与总 Gamma 随时间的漂移路径</td><td>06</td></tr>
+      <tr><td class="mono">0DTE 集中度</td><td>当日到期合约占总 Gamma 敞口比例，越高尾盘越脆</td><td>06</td></tr>
+      <tr><td class="mono">主导到期日</td><td>贡献 GEX / OI 最大的到期档，决定日内 vs 中期侧重</td><td>05</td></tr>
+      <tr><td class="mono">OPEX</td><td>期权到期日；到期前后结构切换关键，默认折叠</td><td>05</td></tr>
+      <tr><td class="mono">Pinning</td><td>到期临近，价格被对冲吸引向 Max Pain</td><td>05</td></tr>
+      <tr><td class="mono">热力图（Strike×Time）</td><td>行权价 × 时间的 GEX 强度分布，看墙是否迁移</td><td>02</td></tr>
+      <tr><td class="mono">蝴蝶图</td><td>Call 一侧 / Put 一侧的 OI 左右分布</td><td>03</td></tr>
+    </table>
+  </div>
+
+  <!-- GEX 公式面板 -->
+  <div class="panel">
+    <h2>GEX 计算公式面板（美股 Dealer 口径）</h2>
+    <div class="grid2">
+      <div>
+        <p style="font-size:13px;color:#5F5E5A;margin:0 0 6px;">核心假设：做市商（Dealer）是零售净买入期权的对手方，即 <b>净做空期权</b>。价格上行时做空 Call 需买入对冲、做空 Put 需卖出对冲，据此定符号。</p>
+        <div class="formula">
+          dGamma(Γ) = BS_gamma(S, K, σ, T, r)<br>
+          美元Gamma = OI × Γ × S² × 0.01 × 100<br>
+          <span style="color:#3B6D11">CallGEX = + OI<sub>C</sub> × Γ<sub>C</sub> × S² × 0.01 × 100</span><br>
+          <span style="color:#A32D2D">PutGEX&nbsp; = + OI<sub>P</sub> × Γ<sub>P</sub> × S² × 0.01 × 100</span><br>
+          NetGEX = Σ (CallGEX − PutGEX) × 持仓方向<br>
+          <span style="color:#7A4E00">单位：$/1% move（价格每动 1% 对冲所需名义美元）</span>
+        </div>
+        <p style="font-size:12.5px;color:#888780;margin:6px 0 0;">注：不同工具对「谁做多」的假设相反，会整体翻转符号；关键不是绝对符号，而是 <b>NetGEX 相对零的符号 + 分布</b>。切标的/换口径后须重新读 Overview。</p>
+      </div>
+      <div>
+        <p style="font-size:13px;color:#5F5E5A;margin:0 0 6px;">符号 → 做市商行为 → 市场效果（交易上最重要的一课）：</p>
+        <table class="k">
+          <tr><th>GEX 状态</th><th>做市商行为</th><th>市场效果</th></tr>
+          <tr><td><span class="sign pos">正 Gamma（NetGEX&gt;0）</span></td><td>涨了卖、跌了买</td><td>抑制波动，磁吸回中枢，易震荡</td></tr>
+          <tr><td><span class="sign neg">负 Gamma（NetGEX&lt;0）</span></td><td>涨了买、跌了卖</td><td>放大波动，助涨助跌，易趋势/踩踏</td></tr>
+          <tr><td><span class="sign" style="color:#854F0B">中性（近 Flip）</span></td><td>对冲力量抵消</td><td>方向不定，易被消息驱动突破</td></tr>
+        </table>
+        <p style="font-size:13px;color:#5F5E5A;margin:12px 0 4px;">三个容易混淆的价位（第二代统一命名）：</p>
+        <table class="k">
+          <tr><th>价位</th><th>定义</th></tr>
+          <tr><td class="mono">Gamma Flip</td><td>聚合 NetGEX 由正转负的价位（= 原「Zero Γ」，二者同义，勿混用）</td></tr>
+          <tr><td class="mono">Max Γ</td><td>单 Strike 净 GEX 峰值 = 最强引力位</td></tr>
+          <tr><td class="mono">Call/Put Wall</td><td>上方最大 Call GEX / 下方最大 Put GEX 的 Strike</td></tr>
+          <tr><td class="mono">Max Pain</td><td>使期权买方总损失最大的行权价（到期 Pin 目标）</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    数据备注：全部数值为示意占位。口径为「美股 Dealer GEX」（假设做市商净做空期权，$ per 1% move）；若落地 A 股，请改回「持仓 GEX = OI × Black-Scholes gamma」并相应翻转符号假设。数据源可复用现有 ClickHouse Lake（trades / orders / quotes + IV 曲面）。Vanna/Charm 依赖 per-strike IV 与时间衰减，计算量大，建议异步快照。参考案例：gexboard、GEX Metrix、QuantKit、TradeEcho 等美股 GEX 工具。
+  </footer>
+
+</div>
+<script>
+  function toggleBubbles(){
+    var b=document.getElementById('bubbles');
+    var l=document.getElementById('legendBubble');
+    if(!b||!l) return;
+    var visible = b.style.display!=='none';
+    b.style.display = visible ? 'none' : '';
+    l.style.opacity = visible ? '0.35' : '1';
+    l.setAttribute('aria-pressed', visible ? 'false' : 'true');
+  }
+</script>
+</body>
+</html>
