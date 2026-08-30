@@ -1,0 +1,82 @@
+Animated Curtain Teaching
+Turn any concept into a scroll-free HTML deck that animates as you advance. Output is a single self-contained HTML file (inline CSS + JS, no build, no CDN) that opens by double-click.
+
+Beginner-First Principles (the point of this skill)
+A beginner must get it at a glance. Four rules override everything else:
+
+一眼看懂 (glanceable). One plain sentence per screen. No jargon dumps, no rambling, no "绕圈子". If a sentence needs two breaths, split or cut it.
+通俗案例 over abstract. Replace the paragraph of explanation under the title with a live, clickable example the user can poke and watch change (see Interactive Demo Pattern). Show, don't describe.
+通俗工具类比 (familiar-tool analogy). When a diagram still isn't obvious, map the concept onto an everyday tool the learner already knows. Excel is only ONE instance — pick whichever tool fits (see Familiar-Tool Analogy Pattern).
+小白视角 (zero background). Assume no prior knowledge. Every term is hoverable AND visibly marked. Prefer "普通写法 vs X" left/right contrast and per-line execution-order numbers over prose.
+Hard Rule (non-negotiable): hover annotations, visibly marked
+Every technical term and every English abbreviation must have a hover teaching annotation — cover and closing included.
+
+HTML prose: <span class="kw" data-tip="解释">术语</span>.
+SVG elements (curve/point/box): add class="hot" data-tip="解释".
+An English abbreviation (IV, GEX, API, DOM, JSX…) must never appear bare — first mention in every scene carries a data-tip; re-mentions may reuse it.
+data-tip = plain-language definition + (if useful) why it matters. No circular definitions.
+Discoverability is mandatory: users can't hover what they can't spot. Mark hoverable TEXT with a dotted underline (text.hot{ text-decoration:underline dotted }) and hoverable BOXES with a dashed border (g.hot>rect{ stroke-dasharray:5 3 }), and state the convention once (cover + a persistent bottom hint bar) — never as repeated small print on every block.
+Keep it calm: soften .kw (thin dotted underline, colour close to body text, not bold-blue) so paragraphs don't turn into a busy sea of highlighted tokens.
+Scene Structure
+Order: cover → step 1..N → closing. Merge related ideas into one interactive scene rather than spending a whole static screen on each sub-point — fewer, richer, clickable pages beat many scattered ones.
+
+Cover — minimal: big title + ONE hook line + "按 → 开始". Put navigation + hover help ONLY in the persistent bottom hint bar, not a dense cover paragraph.
+Each step: kicker (第 N 幕 · 副标题) → title (one sentence) → interactive demo bar (button(s)) → stage(s) (the animated SVG, optionally + a familiar-tool table below) → caption (one takeaway). Skip a long subtitle whenever a live demo can convey it.
+Running "已学" chain: ONLY on the closing page, never repeated at the bottom of every scene.
+Closing: ONE plain sentence that nails the whole topic (e.g. "普通改界面，React 改数据"). Do NOT re-list terms (组件/JSX/state/Diff…) — that is the fluff beginners hate.
+Interactive Demo Pattern
+Put a real <button> in the scene (.demo). Clicking mutates a JS counter and visibly updates the SVG: add a transient class then remove it via setTimeout (e.g. fire/mf=red manual / af=green auto / sf=blue touched).
+Drive highlights without per-element ids: select structurally, e.g. svg.querySelectorAll('text.code.hot') filtered by an attribute (x==='60' = left panel), and g by its circle[fill]. Stagger with setTimeout.
+Per-side live metrics go in EACH side's own summary bar (left "你手动执行 N 步" / right "React 已重渲染 N 次"). NEVER merge left+right numbers into one combined horizontal strip — beginners read it as noise.
+button.blur() after click so Space/Enter don't also advance the deck.
+Odd/even or on/off toggles make the "algorithm" visible (e.g. 奇数变红 → the derived cell flips automatically).
+Familiar-Tool Analogy Pattern (generalising the Excel case)
+Purpose: hand the beginner a mental model from a tool they already use. Pick the closest everyday tool per topic, e.g.:
+
+reactive / one-source-many-views / derived values → Excel (formula cells auto-recompute: =数量, =数量×单价).
+state / props / 单向数据流 → 点餐菜单 + 订单状态、快递单.
+复制粘贴 vs 复用/组件 → Word 样式 / PPT 母版 / 模板.
+事件 / 发布订阅 → 小区广播 / 微信群.
+缓存 → 便利贴 / 浏览器书签.
+diff / 虚拟 DOM → "找不同"游戏.
+If Excel (or any tool) can't express a future topic, choose another ubiquitous tool that maps to the SAME underlying principle — the goal is the analogy, not Excel itself.
+
+Layout rule: keep the interactive diagram AND put the analogy as a comparison TABLE on the SAME page — diagram on top, analogy table below, one button drives both (stacked, both visible). Do NOT use a toggle that hides the diagram to reveal the table; beginners want to compare at once. Preserve the 普通 vs X left/right framing in the table too.
+
+Analogy-table styling so it reads like a spreadsheet: HTML <table> with border-collapse:collapse, 1px cell borders, zebra striping (tbody tr:nth-child(even)), a highlighted first column (the dimension label).
+
+Image-First & Layout / Overflow
+The diagram carries the teaching; text only labels it. Each SVG uses viewBox="0 0 900 400" (or …300), authored directly in the 900-grid — no scale transform, no calc().
+Overflow trap: scenes are overflow:hidden + vertically centred, so stacking an SVG stage + an HTML table can exceed the viewport and get clipped. Constrain each stage (width:min(820px,92vw)) and cap the table wrapper (max-width:820px; margin:0 auto) so both the fit and the two pages' tables match.
+No line-over-text: route fan-out connectors as an orthogonal "bus" (short vertical stub → horizontal bus → equal drops); place labels in empty gaps, never on a line path.
+Unify card corners (svg rect{ rx:10px }); keep a strict 4-tier type scale (title / subtitle / annotation / helper) and an 8px spacing rhythm.
+Animation Pattern
+Curves/paths draw in: pathLength="1" + stroke-dasharray:1; stroke-dashoffset:1 → .scene.active .curve{stroke-dashoffset:0}.
+Points/labels/arrows pop in: .pop{opacity:0;transform:scale(0);transform-box:fill-box;transform-origin:center} → .scene.active .pop{opacity:1;transform:scale(1)}, staggered via .d1–.d5.
+Scene transition: fade + translateY + scale on .scene.active (see template).
+Build Workflow
+Read 
+template.html
+ — copy its <style> and <script> verbatim (complete & tested); add scene-specific classes on top.
+Decompose the topic into a few scenes, merging related sub-ideas; give each ONE takeaway and decide its live demo + best familiar-tool analogy.
+For each scene design minimal SVG in the 900-grid; mark .curve, .pop .dN, data-tip, and which elements the demo will highlight.
+Add the .demo bar + analogy table; wire the button via structural selection.
+Apply the Hard Rule (annotations + visible marks) across cover/steps/closing.
+Verify (below), write to the user's folder, present the file.
+Verification (run all before delivering)
+Hover coverage grep — grep -oE '[A-Z]{2,}[a-z]*' out.html for abbreviations + scan Chinese technical nouns; every visible hit must sit inside a .kw/data-tip.
+Render check — headless Chrome / puppeteer: document.querySelectorAll('.scene.active') === 1; active .kicker matches the step; zero console/page errors.
+Interaction test (catches click-logic bugs screenshots miss) — copy the file, change go(0)→go(N), inject element.click() a few times, run chrome --headless=new --dump-dom, and regex the mutated textContent to assert counters/labels changed.
+Overflow check — screenshot at a short viewport (e.g. --window-size=1200,780) and confirm the caption / bottom of the last stacked block is not clipped.
+file:// gotcha — a bare filename renders Chrome's error page; use an absolute file:///… URL.
+Anti-Patterns
+A long explanation paragraph under the title when a clickable demo would show it.
+Merging per-side live metrics into one combined horizontal strip.
+A jargon-dump closing ("组件/JSX/state/Diff…") instead of one plain sentence.
+A toggle that HIDES the diagram to show the analogy table — show both stacked.
+One static screen per sub-concept when related ideas could merge into one interactive page (scattered, wastes space).
+A bare English abbreviation, or a hoverable element with no visible mark (users can't discover it).
+Text walls with no diagram; diagrams whose only labels are numbers with no hover meaning.
+Line crossing text; two stacked blocks overflowing a hidden-overflow scene.
+CDN/React/ESM for a teaching deck — keep it a single offline file.
+rfind('<script') style inlining if you ever bundle (payload may contain <script> strings); rebuild from a root marker instead.
